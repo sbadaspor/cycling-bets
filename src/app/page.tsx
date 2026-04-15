@@ -1,85 +1,95 @@
-import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
-import { getLeaderboardGeral, getProvas, getUltimasApostas } from '@/lib/queries'
-import { LeaderboardTable } from '@/components/dashboard/LeaderboardTable'
+import {
+  getProvas,
+  getApostasProvaComPerfil,
+  getUltimaEtapa,
+  getUltimaProvaFinalizada,
+} from '@/lib/queries'
+import { categorizarProva } from '@/lib/provaStatus'
 import { ProvasList } from '@/components/dashboard/ProvasList'
-import { UltimasApostas } from '@/components/dashboard/UltimasApostas'
-import { StatsCards } from '@/components/dashboard/StatsCards'
+import ClassificacaoProvaTable from '@/components/dashboard/ClassificacaoProvaTable'
 
 export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [leaderboard, provas, ultimasApostas] = await Promise.all([
-    getLeaderboardGeral(),
-    getProvas(),
-    user ? getUltimasApostas(user.id, 10) : Promise.resolve([]),
-  ])
+  const provas = await getProvas()
+  const provasCategorizadas = provas.map(categorizarProva)
+  const provasADecorrer = provasCategorizadas.filter(p => p.categoria === 'a_decorrer')
+
+  // Buscar dados das provas a decorrer (apostas + última etapa de cada)
+  const dadosADecorrer = await Promise.all(
+    provasADecorrer.map(async (prova) => {
+      const [apostas, ultimaEtapa] = await Promise.all([
+        getApostasProvaComPerfil(prova.id),
+        getUltimaEtapa(prova.id),
+      ])
+      return { prova, apostas, ultimaEtapa }
+    })
+  )
+
+  // Se não há provas a decorrer, buscar a última finalizada
+  let dadosUltimaFinalizada: {
+    prova: typeof provas[number]
+    apostas: Awaited<ReturnType<typeof getApostasProvaComPerfil>>
+    ultimaEtapa: Awaited<ReturnType<typeof getUltimaEtapa>>
+  } | null = null
+
+  if (dadosADecorrer.length === 0) {
+    const ultima = await getUltimaProvaFinalizada()
+    if (ultima) {
+      const [apostas, ultimaEtapa] = await Promise.all([
+        getApostasProvaComPerfil(ultima.id),
+        getUltimaEtapa(ultima.id),
+      ])
+      dadosUltimaFinalizada = { prova: ultima, apostas, ultimaEtapa }
+    }
+  }
 
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-zinc-100">
-            🚴 VeloApostas
-          </h1>
-          <p className="text-zinc-400 mt-1">
-            Sistema de apostas de ciclismo entre amigos
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold text-zinc-100">🚴 VeloApostas</h1>
+        <p className="text-zinc-400 mt-1">
+          Sistema de apostas de ciclismo entre amigos
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <StatsCards
-        totalProvas={provas.length}
-        provasAbertas={provas.filter(p => p.status === 'aberta').length}
-        totalParticipantes={leaderboard.length}
-      />
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Leaderboard Geral */}
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-zinc-100">
-              🏆 Classificação Geral
-            </h2>
-            <span className="text-sm text-zinc-500">
-              {leaderboard.length} participante{leaderboard.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-          <Suspense fallback={<LoadingCard />}>
-            <LeaderboardTable entries={leaderboard} currentUserId={user?.id} />
-          </Suspense>
-        </div>
-
-        {/* Provas & Últimas Apostas */}
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold text-zinc-100 mb-4">
-              🏅 Provas
-            </h2>
-            <ProvasList provas={provas} userId={user?.id} />
-          </div>
-
-          {user && ultimasApostas.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold text-zinc-100 mb-4">
-                📋 As Minhas Apostas
-              </h2>
-              <UltimasApostas apostas={ultimasApostas} />
+        {/* Coluna principal: classificações */}
+        <div className="lg:col-span-2 space-y-6">
+          {dadosADecorrer.length > 0 ? (
+            dadosADecorrer.map(({ prova, apostas, ultimaEtapa }) => (
+              <ClassificacaoProvaTable
+                key={prova.id}
+                prova={prova}
+                apostas={apostas}
+                ultimaEtapa={ultimaEtapa}
+              />
+            ))
+          ) : dadosUltimaFinalizada ? (
+            <ClassificacaoProvaTable
+              prova={dadosUltimaFinalizada.prova}
+              apostas={dadosUltimaFinalizada.apostas}
+              ultimaEtapa={dadosUltimaFinalizada.ultimaEtapa}
+              titulo={`🏆 Classificação da última prova decorrida — ${dadosUltimaFinalizada.prova.nome}`}
+            />
+          ) : (
+            <div className="card text-center py-12 text-zinc-500">
+              <p>Ainda não há provas com classificação para mostrar.</p>
             </div>
           )}
         </div>
-      </div>
-    </div>
-  )
-}
 
-function LoadingCard() {
-  return (
-    <div className="card animate-pulse">
-      <div className="h-64 bg-zinc-800 rounded-lg" />
+        {/* Coluna lateral: próximas provas */}
+        <div>
+          <h2 className="text-xl font-semibold text-zinc-100 mb-4">
+            Próximas provas
+          </h2>
+          <ProvasList provas={provas} userId={user?.id} />
+        </div>
+      </div>
     </div>
   )
 }
