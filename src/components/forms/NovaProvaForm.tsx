@@ -2,17 +2,26 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { CategoriaProvaTipo } from '@/types'
 
 interface Props {
   onCreated?: () => void
   onCancel?: () => void
 }
 
+const CATEGORIAS: { value: CategoriaProvaTipo; label: string }[] = [
+  { value: 'grande_volta', label: 'Grande Volta' },
+  { value: 'prova_semana', label: 'Prova de uma semana' },
+  { value: 'monumento', label: 'Monumento' },
+  { value: 'prova_dia', label: 'Prova de um dia' },
+]
+
 export default function NovaProvaForm({ onCreated, onCancel }: Props) {
   const router = useRouter()
   const [nome, setNome] = useState('')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
+  const [categoria, setCategoria] = useState<CategoriaProvaTipo>('grande_volta')
   const [descricao, setDescricao] = useState('')
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -31,7 +40,7 @@ export default function NovaProvaForm({ onCreated, onCancel }: Props) {
       const res = await fetch('/api/provas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, data_inicio: dataInicio, data_fim: dataFim, descricao }),
+        body: JSON.stringify({ nome, data_inicio: dataInicio, data_fim: dataFim, categoria, descricao }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -76,6 +85,19 @@ export default function NovaProvaForm({ onCreated, onCancel }: Props) {
           value={nome}
           onChange={e => setNome(e.target.value)}
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-zinc-400 mb-1.5">Categoria *</label>
+        <select
+          className="input-field"
+          value={categoria}
+          onChange={e => setCategoria(e.target.value as CategoriaProvaTipo)}
+        >
+          {CATEGORIAS.map(c => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
