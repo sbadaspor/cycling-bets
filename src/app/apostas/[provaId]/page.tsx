@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { getProva, getMinhaAposta } from '@/lib/queries'
+import { getProva, getMinhaAposta, getCiclistas } from '@/lib/queries'
 import { ApostaForm } from '@/components/forms/ApostaForm'
 
 interface Props {
@@ -11,7 +12,6 @@ export default async function ApostaPage({ params }: Props) {
   const { provaId } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-
   if (!user) redirect('/auth/login')
 
   let prova
@@ -25,7 +25,40 @@ export default async function ApostaPage({ params }: Props) {
     redirect(`/provas/${provaId}`)
   }
 
-  const minhaAposta = await getMinhaAposta(provaId, user.id)
+  const [minhaAposta, ciclistas] = await Promise.all([
+    getMinhaAposta(provaId, user.id),
+    getCiclistas(provaId),
+  ])
+
+  // Bloqueio: se não houver startlist, não é possível apostar
+  if (ciclistas.length === 0) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-6">
+          <div className="flex items-center gap-2 text-zinc-500 text-sm mb-2">
+            <span>🏆 Apostas</span>
+            <span>›</span>
+            <span>{prova.nome}</span>
+          </div>
+          <h1 className="text-2xl font-bold text-zinc-100">{prova.nome}</h1>
+        </div>
+
+        <div className="card text-center py-12">
+          <div className="text-5xl mb-4">📋</div>
+          <h2 className="text-xl font-bold text-zinc-100">Startlist em breve</h2>
+          <p className="text-zinc-400 mt-2 max-w-md mx-auto">
+            A lista de ciclistas desta prova ainda não foi carregada. Volta a tentar mais tarde — só poderás apostar depois da startlist estar disponível.
+          </p>
+          <Link
+            href="/"
+            className="btn-primary inline-block mt-6"
+          >
+            ← Voltar ao dashboard
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -46,10 +79,17 @@ export default async function ApostaPage({ params }: Props) {
               Aposta existente
             </span>
           )}
+          <span className="badge bg-zinc-800 text-zinc-400 border border-zinc-700">
+            {ciclistas.length} ciclistas na startlist
+          </span>
         </div>
       </div>
 
-      <ApostaForm prova={prova} apostaExistente={minhaAposta} />
+      <ApostaForm
+        prova={prova}
+        apostaExistente={minhaAposta}
+        ciclistas={ciclistas}
+      />
     </div>
   )
 }
