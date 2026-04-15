@@ -2,26 +2,29 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Aposta, Prova } from '@/types'
+import type { Aposta, Ciclista, Prova } from '@/types'
+import CyclistAutocomplete from './CyclistAutocomplete'
 
 interface Props {
   prova: Prova
   apostaExistente?: Aposta | null
+  ciclistas: Ciclista[]
 }
 
-export function ApostaForm({ prova, apostaExistente }: Props) {
+export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState(false)
 
-  // Inicializar com aposta existente ou vazio
   const [top20, setTop20] = useState<string[]>(
     apostaExistente?.apostas_top20 ?? Array(20).fill('')
   )
   const [camisolaSprint, setCamisolaSprint] = useState(apostaExistente?.camisola_sprint ?? '')
   const [camisolaMontanha, setCamisolaMontanha] = useState(apostaExistente?.camisola_montanha ?? '')
   const [camisolaJuventude, setCamisolaJuventude] = useState(apostaExistente?.camisola_juventude ?? '')
+
+  const nomesValidos = new Set(ciclistas.map(c => c.nome))
 
   const handleCiclistaChange = (idx: number, valor: string) => {
     setTop20(prev => {
@@ -33,25 +36,37 @@ export function ApostaForm({ prova, apostaExistente }: Props) {
 
   const handleSubmit = async () => {
     setErro(null)
-    setLoading(true)
 
-    // Validação
-    const ciclistasVazios = top20.filter(c => !c.trim())
-    if (ciclistasVazios.length > 0) {
-      setErro(`Preenche todos os 20 lugares. Faltam ${ciclistasVazios.length}.`)
-      setLoading(false)
+    const vazios = top20.filter(c => !c.trim())
+    if (vazios.length > 0) {
+      setErro(`Preenche todos os 20 lugares. Faltam ${vazios.length}.`)
       return
     }
 
-    // Verificar duplicados
-    const nomes = top20.map(c => c.trim().toLowerCase())
+    const invalidos = top20.filter(c => !nomesValidos.has(c.trim()))
+    if (invalidos.length > 0) {
+      setErro(`${invalidos.length} ciclista(s) não estão na startlist. Escolhe apenas nomes das sugestões.`)
+      return
+    }
+
+    const nomes = top20.map(c => c.trim())
     const duplicados = nomes.filter((n, idx) => nomes.indexOf(n) !== idx)
     if (duplicados.length > 0) {
       setErro('Há ciclistas repetidos na tua aposta. Verifica a lista.')
-      setLoading(false)
       return
     }
 
+    // Camisolas: se preenchidas, têm de estar na startlist
+    const camisolasPreenchidas = [camisolaSprint, camisolaMontanha, camisolaJuventude]
+      .map(c => c.trim())
+      .filter(c => c.length > 0)
+    const camisolasInvalidas = camisolasPreenchidas.filter(c => !nomesValidos.has(c))
+    if (camisolasInvalidas.length > 0) {
+      setErro('Ciclista de camisola não está na startlist. Escolhe das sugestões ou deixa vazio.')
+      return
+    }
+
+    setLoading(true)
     try {
       const res = await fetch('/api/apostas', {
         method: 'POST',
@@ -66,7 +81,6 @@ export function ApostaForm({ prova, apostaExistente }: Props) {
       })
 
       const data = await res.json()
-
       if (!res.ok) {
         setErro(data.error ?? 'Erro ao submeter aposta')
         return
@@ -105,14 +119,14 @@ export function ApostaForm({ prova, apostaExistente }: Props) {
           Previsão Top-20
         </h2>
         <p className="text-zinc-500 text-sm mb-4">
-          Coloca os 20 ciclistas por ordem — do 1.º ao 20.º lugar.
+          Coloca os 20 ciclistas por ordem — do 1.º ao 20.º lugar. Escreve algumas letras e escolhe da lista.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {top20.map((ciclista, idx) => (
-            <div key={idx} className="flex items-center gap-3">
+            <div key={idx} className="flex items-start gap-3">
               <div className={`
-                w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold flex-shrink-0
+                w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold flex-shrink-0 mt-2
                 ${idx < 10
                   ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                   : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
@@ -120,14 +134,15 @@ export function ApostaForm({ prova, apostaExistente }: Props) {
               `}>
                 {idx + 1}
               </div>
-              <input
-                type="text"
-                className="input-field"
-                placeholder={`${idx + 1}º lugar`}
-                value={ciclista}
-                onChange={e => handleCiclistaChange(idx, e.target.value)}
-                autoComplete="off"
-              />
+              <div className="flex-1">
+                <CyclistAutocomplete
+                  ciclistas={ciclistas}
+                  value={ciclista}
+                  onChange={(v) => handleCiclistaChange(idx, v)}
+                  placeholder={`${idx + 1}º lugar`}
+                  usados={top20.filter((_, i) => i !== idx)}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -155,49 +170,46 @@ export function ApostaForm({ prova, apostaExistente }: Props) {
             <label className="block text-sm font-medium text-zinc-400 mb-1.5">
               🟢 Camisola Sprint
             </label>
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Nome do ciclista"
+            <CyclistAutocomplete
+              ciclistas={ciclistas}
               value={camisolaSprint}
-              onChange={e => setCamisolaSprint(e.target.value)}
+              onChange={setCamisolaSprint}
+              placeholder="Nome do ciclista"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1.5">
               🔴 Camisola Montanha
             </label>
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Nome do ciclista"
+            <CyclistAutocomplete
+              ciclistas={ciclistas}
               value={camisolaMontanha}
-              onChange={e => setCamisolaMontanha(e.target.value)}
+              onChange={setCamisolaMontanha}
+              placeholder="Nome do ciclista"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-1.5">
               ⚪ Camisola Juventude
             </label>
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Nome do ciclista"
+            <CyclistAutocomplete
+              ciclistas={ciclistas}
               value={camisolaJuventude}
-              onChange={e => setCamisolaJuventude(e.target.value)}
+              onChange={setCamisolaJuventude}
+              placeholder="Nome do ciclista"
             />
           </div>
         </div>
       </div>
 
-      {/* Resumo antes de submeter */}
+      {/* Resumo */}
       <div className="card bg-zinc-900/50 border-zinc-700/50">
         <h3 className="text-sm font-medium text-zinc-400 mb-3">Resumo</h3>
         <div className="grid grid-cols-3 gap-4 text-center text-sm">
           <div>
             <p className="text-zinc-400">Ciclistas preenchidos</p>
-            <p className={`font-bold text-lg ${top20.filter(c => c.trim()).length === 20 ? 'text-green-400' : 'text-amber-400'}`}>
-              {top20.filter(c => c.trim()).length}/20
+            <p className={`font-bold text-lg ${top20.filter(c => c.trim() && nomesValidos.has(c.trim())).length === 20 ? 'text-green-400' : 'text-amber-400'}`}>
+              {top20.filter(c => c.trim() && nomesValidos.has(c.trim())).length}/20
             </p>
           </div>
           <div>
