@@ -2,18 +2,26 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Prova } from '@/types'
+import type { CategoriaProvaTipo, Prova } from '@/types'
 
 interface Props {
   prova: Prova
   onDeleted: () => void
 }
 
+const CATEGORIAS: { value: CategoriaProvaTipo; label: string }[] = [
+  { value: 'grande_volta', label: 'Grande Volta' },
+  { value: 'prova_semana', label: 'Prova de uma semana' },
+  { value: 'monumento', label: 'Monumento' },
+  { value: 'prova_dia', label: 'Prova de um dia' },
+]
+
 export default function ProvaDetalhesTab({ prova, onDeleted }: Props) {
   const router = useRouter()
   const [nome, setNome] = useState(prova.nome)
   const [dataInicio, setDataInicio] = useState(prova.data_inicio)
   const [dataFim, setDataFim] = useState(prova.data_fim)
+  const [categoria, setCategoria] = useState<CategoriaProvaTipo | ''>(prova.categoria ?? '')
   const [descricao, setDescricao] = useState(prova.descricao ?? '')
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -38,15 +46,18 @@ export default function ProvaDetalhesTab({ prova, onDeleted }: Props) {
 
     setLoading(true)
     try {
+      const payload: Record<string, unknown> = {
+        nome: nome.trim(),
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        descricao,
+      }
+      if (categoria) payload.categoria = categoria
+
       const res = await fetch(`/api/provas/${prova.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nome: nome.trim(),
-          data_inicio: dataInicio,
-          data_fim: dataFim,
-          descricao,
-        }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao guardar')
@@ -102,6 +113,20 @@ export default function ProvaDetalhesTab({ prova, onDeleted }: Props) {
             value={nome}
             onChange={e => setNome(e.target.value)}
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-zinc-400 mb-1.5">Categoria</label>
+          <select
+            className="input-field"
+            value={categoria}
+            onChange={e => setCategoria(e.target.value as CategoriaProvaTipo | '')}
+          >
+            <option value="">— sem categoria —</option>
+            {CATEGORIAS.map(c => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
