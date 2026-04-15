@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Prova } from '@/types'
 import ProvasList from './ProvasList'
 import ProvaDetalhe from './ProvaDetalhe'
@@ -10,30 +10,32 @@ interface Props {
 }
 
 export function AdminPanel({ provas }: Props) {
-  const [provaSelecionada, setProvaSelecionada] = useState<Prova | null>(null)
+  const [provaSelecionadaId, setProvaSelecionadaId] = useState<string | null>(null)
 
-  // Quando a lista de provas muda (ex.: depois de apagar/criar/editar),
-  // se a selecionada já não existe, voltar à lista
-  if (provaSelecionada && !provas.find(p => p.id === provaSelecionada.id)) {
-    setProvaSelecionada(null)
-  }
-
-  // Se houver uma selecionada, atualizar com os dados frescos da lista
-  const provaAtual = provaSelecionada
-    ? provas.find(p => p.id === provaSelecionada.id) ?? null
+  const provaSelecionada = provaSelecionadaId
+    ? provas.find(p => p.id === provaSelecionadaId) ?? null
     : null
 
+  // Se a prova selecionada deixou de existir (foi apagada), voltar à lista
+  useEffect(() => {
+    if (provaSelecionadaId && !provas.find(p => p.id === provaSelecionadaId)) {
+      setProvaSelecionadaId(null)
+    }
+  }, [provas, provaSelecionadaId])
+
+  if (provaSelecionada) {
+    return (
+      <ProvaDetalhe
+        prova={provaSelecionada}
+        onVoltar={() => setProvaSelecionadaId(null)}
+      />
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      {!provaAtual ? (
-        <ProvasList provas={provas} onSelect={setProvaSelecionada} />
-      ) : (
-        <ProvaDetalhe
-          prova={provaAtual}
-          onBack={() => setProvaSelecionada(null)}
-          onDeleted={() => setProvaSelecionada(null)}
-        />
-      )}
-    </div>
+    <ProvasList
+      provas={provas}
+      onSelecionar={(p) => setProvaSelecionadaId(p.id)}
+    />
   )
 }
