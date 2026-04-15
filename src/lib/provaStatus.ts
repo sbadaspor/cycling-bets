@@ -3,15 +3,12 @@ import type { Prova } from '@/types'
 export type CategoriaProva = 'a_decorrer' | 'futura' | 'finalizada'
 
 export interface ProvaCategorizada extends Prova {
-  categoria: CategoriaProva
-  diasAteInicio: number  // negativo se já começou
+  estado: CategoriaProva    // renomeado de "categoria" para "estado"
+  diasAteInicio: number
 }
 
 /**
  * Categoriza uma prova com base na data atual e no seu status.
- * - finalizada: status = 'finalizada'
- * - a_decorrer: data atual >= data_inicio e prova não finalizada
- * - futura: data atual < data_inicio
  */
 export function categorizarProva(prova: Prova): ProvaCategorizada {
   const hoje = new Date()
@@ -22,16 +19,16 @@ export function categorizarProva(prova: Prova): ProvaCategorizada {
   const diffMs = inicio.getTime() - hoje.getTime()
   const diasAteInicio = Math.round(diffMs / (1000 * 60 * 60 * 24))
 
-  let categoria: CategoriaProva
+  let estado: CategoriaProva
   if (prova.status === 'finalizada') {
-    categoria = 'finalizada'
+    estado = 'finalizada'
   } else if (hoje < inicio) {
-    categoria = 'futura'
+    estado = 'futura'
   } else {
-    categoria = 'a_decorrer'
+    estado = 'a_decorrer'
   }
 
-  return { ...prova, categoria, diasAteInicio }
+  return { ...prova, estado, diasAteInicio }
 }
 
 /**
@@ -46,25 +43,23 @@ export function compararProvas(a: ProvaCategorizada, b: ProvaCategorizada): numb
     futura: 1,
     finalizada: 2,
   }
-  if (a.categoria !== b.categoria) {
-    return ordem[a.categoria] - ordem[b.categoria]
+  if (a.estado !== b.estado) {
+    return ordem[a.estado] - ordem[b.estado]
   }
-  if (a.categoria === 'futura') {
+  if (a.estado === 'futura') {
     return a.diasAteInicio - b.diasAteInicio
   }
-  if (a.categoria === 'finalizada') {
+  if (a.estado === 'finalizada') {
     return new Date(b.data_fim).getTime() - new Date(a.data_fim).getTime()
   }
-  // a_decorrer: mais recentes primeiro
   return new Date(b.data_inicio).getTime() - new Date(a.data_inicio).getTime()
 }
 
 /**
  * Diz se uma prova ainda permite apostar.
- * Regra: só provas futuras (data_inicio > hoje) e que ainda não estão finalizadas.
  */
 export function podeApostar(prova: Prova): boolean {
   if (prova.status === 'finalizada') return false
   const cat = categorizarProva(prova)
-  return cat.categoria === 'futura'
+  return cat.estado === 'futura'
 }
