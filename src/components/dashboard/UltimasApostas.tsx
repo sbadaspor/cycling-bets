@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { Aposta } from '@/types'
 
 interface Props {
@@ -8,7 +9,11 @@ export function UltimasApostas({ apostas }: Props) {
   return (
     <div className="space-y-2">
       {apostas.map((aposta) => (
-        <div key={aposta.id} className="card p-4">
+        <Link
+          key={aposta.id}
+          href={`/provas/${aposta.prova_id}/apostas/${aposta.user_id}`}
+          className="card p-4 block hover:bg-zinc-900/80 transition-colors"
+        >
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <p className="font-medium text-zinc-200 text-sm truncate">
@@ -31,7 +36,6 @@ export function UltimasApostas({ apostas }: Props) {
               )}
             </div>
           </div>
-
           {/* Mini preview dos top 3 apostados */}
           <div className="mt-2 flex gap-1 flex-wrap">
             {aposta.apostas_top20.slice(0, 3).map((ciclista, idx) => (
@@ -46,7 +50,7 @@ export function UltimasApostas({ apostas }: Props) {
               <span className="text-xs text-zinc-600">+{aposta.apostas_top20.length - 3}</span>
             )}
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   )
