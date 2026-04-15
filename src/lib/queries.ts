@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import type { Aposta, LeaderboardEntry, LeaderboardProva, Prova, ResultadoReal } from '@/types'
+import type { Aposta, Ciclista, LeaderboardEntry, LeaderboardProva, Prova, ResultadoReal } from '@/types'
 import { compararDesempate } from '@/lib/pontuacao'
 
 // ============================================================
@@ -173,4 +173,31 @@ export async function getResultadoProva(provaId: string) {
 
   if (error) throw error
   return data as ResultadoReal | null
+}
+
+// ============================================================
+// CICLISTAS / STARTLIST
+// ============================================================
+
+export async function getCiclistas(provaId: string): Promise<Ciclista[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('ciclistas')
+    .select('*')
+    .eq('prova_id', provaId)
+    .order('dorsal', { ascending: true })
+
+  if (error) throw error
+  return data as Ciclista[]
+}
+
+export async function countCiclistas(provaId: string): Promise<number> {
+  const supabase = await createClient()
+  const { count, error } = await supabase
+    .from('ciclistas')
+    .select('*', { count: 'exact', head: true })
+    .eq('prova_id', provaId)
+
+  if (error) throw error
+  return count ?? 0
 }
