@@ -265,3 +265,21 @@ export async function getProximoNumeroEtapa(provaId: string): Promise<number> {
   const ultima = await getUltimaEtapa(provaId)
   return ultima ? ultima.numero_etapa + 1 : 1
 }
+
+// ============================================================
+// Última prova finalizada (para o dashboard quando não há prova a decorrer)
+// ============================================================
+
+export async function getUltimaProvaFinalizada(): Promise<Prova | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('provas')
+    .select('*')
+    .eq('status', 'finalizada')
+    .order('data_fim', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return data as Prova | null
+}
