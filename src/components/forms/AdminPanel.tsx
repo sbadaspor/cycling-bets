@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Prova, ResultadoReal } from '@/types'
+import StartlistManager from './StartlistManager'
 
 interface Props {
   provas: Prova[]
@@ -10,7 +11,7 @@ interface Props {
 }
 
 export function AdminPanel({ provas, mapaResultados }: Props) {
-  const [tab, setTab] = useState<'provas' | 'resultados'>('resultados')
+  const [tab, setTab] = useState<'provas' | 'resultados' | 'startlist'>('resultados')
 
   return (
     <div className="space-y-6">
@@ -36,12 +37,23 @@ export function AdminPanel({ provas, mapaResultados }: Props) {
         >
           ➕ Nova Prova
         </button>
+        <button
+          onClick={() => setTab('startlist')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            tab === 'startlist'
+              ? 'bg-amber-500 text-zinc-900'
+              : 'text-zinc-400 hover:text-zinc-100'
+          }`}
+        >
+          📋 Startlist
+        </button>
       </div>
 
       {tab === 'resultados' && (
         <ResultadosTab provas={provas} mapaResultados={mapaResultados} />
       )}
       {tab === 'provas' && <NovaProvaTab />}
+      {tab === 'startlist' && <StartlistManager provas={provas} />}
     </div>
   )
 }
