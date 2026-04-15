@@ -8,10 +8,9 @@ interface Props {
 }
 
 export function ProvasList({ provas, userId }: Props) {
-  // Categorizar e mostrar só as futuras, ordenadas pela mais próxima
   const futuras = provas
     .map(categorizarProva)
-    .filter(p => p.categoria === 'futura')
+    .filter(p => p.estado === 'futura')
     .sort(compararProvas)
 
   if (futuras.length === 0) {
