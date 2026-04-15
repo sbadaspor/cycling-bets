@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import type { Aposta, Ciclista, LeaderboardEntry, LeaderboardProva, Prova, ResultadoReal } from '@/types'
+import type { Aposta, Ciclista, EtapaResultado, LeaderboardEntry, LeaderboardProva, Prova, ResultadoReal } from '@/types'
 import { compararDesempate } from '@/lib/pontuacao'
 
 // ============================================================
@@ -200,4 +200,39 @@ export async function countCiclistas(provaId: string): Promise<number> {
 
   if (error) throw error
   return count ?? 0
+}
+
+// ============================================================
+// ETAPAS (classificação geral por etapa)
+// ============================================================
+
+export async function getEtapas(provaId: string): Promise<EtapaResultado[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('etapas_resultados')
+    .select('*')
+    .eq('prova_id', provaId)
+    .order('numero_etapa', { ascending: true })
+
+  if (error) throw error
+  return data as EtapaResultado[]
+}
+
+export async function getUltimaEtapa(provaId: string): Promise<EtapaResultado | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('etapas_resultados')
+    .select('*')
+    .eq('prova_id', provaId)
+    .order('numero_etapa', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return data as EtapaResultado | null
+}
+
+export async function getProximoNumeroEtapa(provaId: string): Promise<number> {
+  const ultima = await getUltimaEtapa(provaId)
+  return ultima ? ultima.numero_etapa + 1 : 1
 }
