@@ -4,10 +4,12 @@ import {
   getApostasProvaComPerfil,
   getUltimaEtapa,
   getUltimaProvaFinalizada,
+  getVitoriasAgregadas,
 } from '@/lib/queries'
 import { categorizarProva } from '@/lib/provaStatus'
 import { ProvasList } from '@/components/dashboard/ProvasList'
 import ClassificacaoProvaTable from '@/components/dashboard/ClassificacaoProvaTable'
+import VitoriasJogadores from '@/components/dashboard/VitoriasJogadores'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -46,6 +48,9 @@ export default async function HomePage() {
     }
   }
 
+  // Vitórias agregadas (históricas + provas finalizadas no sistema)
+  const vitorias = await getVitoriasAgregadas()
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -57,7 +62,7 @@ export default async function HomePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Coluna principal: classificações */}
+        {/* Coluna principal: classificação + vitórias */}
         <div className="lg:col-span-2 space-y-6">
           {dadosADecorrer.length > 0 ? (
             dadosADecorrer.map(({ prova, apostas, ultimaEtapa }) => (
@@ -80,6 +85,9 @@ export default async function HomePage() {
               <p>Ainda não há provas com classificação para mostrar.</p>
             </div>
           )}
+
+          {/* Vitórias por jogador */}
+          <VitoriasJogadores vitorias={vitorias} />
         </div>
 
         {/* Coluna lateral: próximas provas */}
