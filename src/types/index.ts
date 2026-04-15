@@ -29,6 +29,20 @@ export interface Ciclista {
   dorsal?: number       // ex.: 1
   created_at: string
 }
+export interface EtapaResultado {
+  id: string
+  prova_id: string
+  numero_etapa: number
+  data_etapa: string
+  classificacao_geral_top20: string[]
+  camisola_sprint?: string
+  camisola_montanha?: string
+  camisola_juventude?: string
+  is_final: boolean
+  inserido_por?: string
+  created_at: string
+  updated_at: string
+}
 export interface Aposta {
   id: string
   prova_id: string
