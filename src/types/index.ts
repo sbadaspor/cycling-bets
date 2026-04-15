@@ -1,390 +1,179 @@
-import { createClient } from '@/lib/supabase/server'
-import type {
-  Aposta,
-  CategoriaProvaTipo,
-  Ciclista,
-  EtapaResultado,
-  LeaderboardEntry,
-  LeaderboardProva,
-  Prova,
-  ResultadoReal,
-  VitoriaHistorica,
-  VitoriasJogador,
-} from '@/types'
-import { compararDesempate } from '@/lib/pontuacao'
-
 // ============================================================
-// PROVAS
+// TIPOS PRINCIPAIS DO SISTEMA
 // ============================================================
+export type ProvaStatus = 'aberta' | 'fechada' | 'finalizada'
+export type CategoriaProvaTipo = 'grande_volta' | 'prova_semana' | 'monumento' | 'prova_dia'
 
-export async function getProvas() {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('provas')
-    .select('*')
-    .order('data_inicio', { ascending: false })
-
-  if (error) throw error
-  return data as Prova[]
+export interface Perfil {
+  id: string
+  username: string
+  full_name?: string
+  is_admin: boolean
+  avatar_url?: string
+  created_at: string
+  updated_at: string
 }
-
-export async function getProva(id: string) {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('provas')
-    .select('*')
-    .eq('id', id)
-    .single()
-
-  if (error) throw error
-  return data as Prova
+export interface Prova {
+  id: string
+  nome: string
+  data_inicio: string
+  data_fim: string
+  status: ProvaStatus
+  categoria?: CategoriaProvaTipo
+  descricao?: string
+  created_at: string
+  updated_at: string
 }
-
-// ============================================================
-// APOSTAS
-// ============================================================
-
-export async function getApostasProva(provaId: string): Promise<Aposta[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('apostas')
-    .select(`*, perfil:perfis(*)`)
-    .eq('prova_id', provaId)
-    .order('pontos_total', { ascending: false })
-
-  if (error) throw error
-  return data as Aposta[]
+export interface Ciclista {
+  id: string
+  prova_id: string
+  nome: string
+  equipa: string
+  dorsal?: number
+  created_at: string
 }
-
-export async function getMinhaAposta(provaId: string, userId: string) {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('apostas')
-    .select(`*, prova:provas(*)`)
-    .eq('prova_id', provaId)
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  if (error) throw error
-  return data as Aposta | null
+export interface PosicaoAdicional {
+  posicao: number
+  nome: string
 }
-
-export async function getUltimasApostas(userId: string, limit = 10) {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('apostas')
-    .select(`*, prova:provas(*)`)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(limit)
-
-  if (error) throw error
-  return data as Aposta[]
+export interface EtapaResultado {
+  id: string
+  prova_id: string
+  numero_etapa: number
+  data_etapa: string
+  classificacao_geral_top20: string[]
+  posicoes_adicionais: PosicaoAdicional[]
+  camisola_sprint?: string
+  camisola_montanha?: string
+  camisola_juventude?: string
+  is_final: boolean
+  inserido_por?: string
+  created_at: string
+  updated_at: string
 }
-
+export interface Aposta {
+  id: string
+  prova_id: string
+  user_id: string
+  apostas_top20: string[]
+  camisola_sprint?: string
+  camisola_montanha?: string
+  camisola_juventude?: string
+  pontos_total: number
+  pontos_top10: number
+  pontos_top20: number
+  pontos_camisolas: number
+  acertos_exatos: number
+  acertos_exatos_top10: number
+  acertos_exatos_top20: number
+  acertos_camisolas: number
+  calculada: boolean
+  created_at: string
+  updated_at: string
+  perfil?: Perfil
+  prova?: Prova
+}
+export interface ResultadoReal {
+  id: string
+  prova_id: string
+  resultado_top20: string[]
+  camisola_sprint?: string
+  camisola_montanha?: string
+  camisola_juventude?: string
+  inserido_por?: string
+  created_at: string
+  updated_at: string
+}
+export interface VitoriaHistorica {
+  id: string
+  user_id: string
+  ano: number
+  nome_prova: string
+  categoria: CategoriaProvaTipo
+  notas?: string
+  created_at: string
+  perfil?: Perfil
+}
 // ============================================================
-// LEADERBOARD GERAL
+// TIPOS DE UI / FORMULÁRIOS
 // ============================================================
-
-export async function getLeaderboardGeral(): Promise<LeaderboardEntry[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('apostas')
-    .select(`
-      *,
-      perfil:perfis(*),
-      prova:provas!inner(status)
-    `)
-    .eq('prova.status', 'finalizada')
-    .eq('calculada', true)
-
-  if (error) throw error
-
-  const mapaUtilizadores = new Map<string, LeaderboardEntry>()
-
-  for (const aposta of (data as Aposta[])) {
-    if (!aposta.perfil) continue
-    const userId = aposta.user_id
-
-    if (!mapaUtilizadores.has(userId)) {
-      mapaUtilizadores.set(userId, {
-        rank: 0,
-        perfil: aposta.perfil,
-        apostas: { total: 0, calculadas: 0 },
-        pontos_total: 0,
-        pontos_top10: 0,
-        pontos_top20: 0,
-        pontos_camisolas: 0,
-        acertos_exatos: 0,
-        acertos_exatos_top10: 0,
-        acertos_exatos_top20: 0,
-        acertos_camisolas: 0,
-      })
-    }
-
-    const entry = mapaUtilizadores.get(userId)!
-    entry.apostas.total++
-    if (aposta.calculada) entry.apostas.calculadas++
-    entry.pontos_total += aposta.pontos_total
-    entry.pontos_top10 += aposta.pontos_top10
-    entry.pontos_top20 += aposta.pontos_top20
-    entry.pontos_camisolas += aposta.pontos_camisolas
-    entry.acertos_exatos += aposta.acertos_exatos
-    entry.acertos_exatos_top10 += aposta.acertos_exatos_top10
-    entry.acertos_exatos_top20 += aposta.acertos_exatos_top20
-    entry.acertos_camisolas += aposta.acertos_camisolas
+export interface ApostaFormData {
+  prova_id: string
+  apostas_top20: string[]
+  camisola_sprint: string
+  camisola_montanha: string
+  camisola_juventude: string
+}
+export interface ResultadoFormData {
+  prova_id: string
+  resultado_top20: string[]
+  camisola_sprint: string
+  camisola_montanha: string
+  camisola_juventude: string
+}
+export interface CiclistaParsed {
+  nome: string
+  equipa: string
+  dorsal?: number
+}
+// ============================================================
+// TIPOS DE LEADERBOARD
+// ============================================================
+export interface LeaderboardEntry {
+  rank: number
+  perfil: Perfil
+  apostas: {
+    total: number
+    calculadas: number
   }
-
-  const lista = Array.from(mapaUtilizadores.values())
-    .sort(compararDesempate)
-    .map((entry, idx) => ({ ...entry, rank: idx + 1 }))
-
-  return lista
+  pontos_total: number
+  pontos_top10: number
+  pontos_top20: number
+  pontos_camisolas: number
+  acertos_exatos: number
+  acertos_exatos_top10: number
+  acertos_exatos_top20: number
+  acertos_camisolas: number
 }
-
-// ============================================================
-// LEADERBOARD POR PROVA
-// ============================================================
-
-export async function getLeaderboardProva(provaId: string): Promise<LeaderboardProva[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('apostas')
-    .select(`*, perfil:perfis(*)`)
-    .eq('prova_id', provaId)
-    .eq('calculada', true)
-
-  if (error) throw error
-
-  const lista = (data as Aposta[])
-    .sort(compararDesempate)
-    .map((aposta, idx) => ({
-      rank: idx + 1,
-      perfil: aposta.perfil!,
-      aposta,
-    }))
-
-  return lista
+export interface LeaderboardProva {
+  rank: number
+  perfil: Perfil
+  aposta: Aposta
 }
-
 // ============================================================
-// RESULTADOS
+// VITÓRIAS AGREGADAS
 // ============================================================
-
-export async function getResultadoProva(provaId: string) {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('resultados_reais')
-    .select('*')
-    .eq('prova_id', provaId)
-    .maybeSingle()
-
-  if (error) throw error
-  return data as ResultadoReal | null
+export interface VitoriasJogador {
+  perfil: Perfil
+  total: number
+  porCategoria: Record<CategoriaProvaTipo, number>
 }
-
 // ============================================================
-// CICLISTAS / STARTLIST
+// TIPOS DE CÁLCULO DE PONTOS
 // ============================================================
-
-export async function getCiclistas(provaId: string): Promise<Ciclista[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('ciclistas')
-    .select('*')
-    .eq('prova_id', provaId)
-    .order('dorsal', { ascending: true })
-
-  if (error) throw error
-  return data as Ciclista[]
+export interface PontosCalculo {
+  pontos_total: number
+  pontos_top10: number
+  pontos_top20: number
+  pontos_camisolas: number
+  acertos_exatos: number
+  acertos_exatos_top10: number
+  acertos_exatos_top20: number
+  acertos_camisolas: number
+  breakdown: PontoBreakdownItem[]
 }
-
-export async function countCiclistas(provaId: string): Promise<number> {
-  const supabase = await createClient()
-  const { count, error } = await supabase
-    .from('ciclistas')
-    .select('*', { count: 'exact', head: true })
-    .eq('prova_id', provaId)
-
-  if (error) throw error
-  return count ?? 0
+export interface PontoBreakdownItem {
+  ciclista: string
+  posicao_apostada: number
+  posicao_real: number | null
+  pontos: number
+  tipo: 'top10_exato' | 'top20_exato' | 'top10_bonus' | 'top20_bonus' | 'fora' | 'nao_top20'
+  descricao: string
 }
-
-// ============================================================
-// APOSTAS — busca específica
-// ============================================================
-
-export async function getApostaPorUser(provaId: string, userId: string): Promise<Aposta | null> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('apostas')
-    .select(`*, perfil:perfis(*), prova:provas(*)`)
-    .eq('prova_id', provaId)
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  if (error) throw error
-  return data as Aposta | null
-}
-
-export async function getApostasProvaComPerfil(provaId: string): Promise<Aposta[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('apostas')
-    .select(`*, perfil:perfis(*)`)
-    .eq('prova_id', provaId)
-    .order('pontos_total', { ascending: false })
-
-  if (error) throw error
-  return data as Aposta[]
-}
-
-// ============================================================
-// ETAPAS
-// ============================================================
-
-export async function getEtapas(provaId: string): Promise<EtapaResultado[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('etapas_resultados')
-    .select('*')
-    .eq('prova_id', provaId)
-    .order('numero_etapa', { ascending: true })
-
-  if (error) throw error
-  return data as EtapaResultado[]
-}
-
-export async function getUltimaEtapa(provaId: string): Promise<EtapaResultado | null> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('etapas_resultados')
-    .select('*')
-    .eq('prova_id', provaId)
-    .order('numero_etapa', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) throw error
-  return data as EtapaResultado | null
-}
-
-export async function getProximoNumeroEtapa(provaId: string): Promise<number> {
-  const ultima = await getUltimaEtapa(provaId)
-  return ultima ? ultima.numero_etapa + 1 : 1
-}
-
-export async function getUltimaProvaFinalizada(): Promise<Prova | null> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('provas')
-    .select('*')
-    .eq('status', 'finalizada')
-    .order('data_fim', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) throw error
-  return data as Prova | null
-}
-
-// ============================================================
-// VITÓRIAS HISTÓRICAS + AGREGADAS
-// ============================================================
-
-export async function getVitoriasHistoricas(): Promise<VitoriaHistorica[]> {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('vitorias_historicas')
-    .select('*, perfil:perfis(*)')
-    .order('ano', { ascending: false })
-
-  if (error) throw error
-  return data as VitoriaHistorica[]
-}
-
-/**
- * Calcula vitórias agregadas por jogador, juntando:
- *  - Vitórias históricas (tabela vitorias_historicas)
- *  - Vitórias em provas finalizadas no sistema (jogador #1 do leaderboard da prova)
- *
- * Devolve apenas jogadores com pelo menos 1 vitória, ordenados por total descendente.
- */
-export async function getVitoriasAgregadas(): Promise<VitoriasJogador[]> {
-  const supabase = await createClient()
-
-  // 1. Vitórias históricas
-  const { data: historicasData, error: histErr } = await supabase
-    .from('vitorias_historicas')
-    .select('*, perfil:perfis(*)')
-
-  if (histErr) throw histErr
-  const historicas = historicasData as VitoriaHistorica[]
-
-  // 2. Vitórias em provas finalizadas no sistema
-  // Para cada prova finalizada (com categoria definida), encontrar o vencedor (#1 do leaderboard)
-  const { data: provasFinalizadas, error: pErr } = await supabase
-    .from('provas')
-    .select('id, categoria, nome')
-    .eq('status', 'finalizada')
-    .not('categoria', 'is', null)
-
-  if (pErr) throw pErr
-
-  type Acumulador = Map<string, VitoriasJogador>
-  const acc: Acumulador = new Map()
-
-  function getOrInit(perfil: VitoriaHistorica['perfil']): VitoriasJogador | null {
-    if (!perfil) return null
-    let entry = acc.get(perfil.id)
-    if (!entry) {
-      entry = {
-        perfil,
-        total: 0,
-        porCategoria: {
-          grande_volta: 0,
-          prova_semana: 0,
-          monumento: 0,
-          prova_dia: 0,
-        },
-      }
-      acc.set(perfil.id, entry)
-    }
-    return entry
-  }
-
-  // Adicionar históricas
-  for (const v of historicas) {
-    const entry = getOrInit(v.perfil)
-    if (!entry) continue
-    entry.total++
-    entry.porCategoria[v.categoria]++
-  }
-
-  // Adicionar vencedores das provas no sistema
-  for (const p of (provasFinalizadas as { id: string; categoria: CategoriaProvaTipo; nome: string }[])) {
-    const lb = await getLeaderboardProva(p.id)
-    if (lb.length === 0) continue
-    const vencedor = lb[0]
-    const perfil = vencedor.perfil
-    if (!perfil) continue
-    let entry = acc.get(perfil.id)
-    if (!entry) {
-      entry = {
-        perfil,
-        total: 0,
-        porCategoria: {
-          grande_volta: 0,
-          prova_semana: 0,
-          monumento: 0,
-          prova_dia: 0,
-        },
-      }
-      acc.set(perfil.id, entry)
-    }
-    entry.total++
-    entry.porCategoria[p.categoria]++
-  }
-
-  return Array.from(acc.values()).sort((a, b) => b.total - a.total)
+export interface CamisolaBreakdown {
+  tipo: 'sprint' | 'montanha' | 'juventude'
+  apostado: string
+  real: string
+  acertou: boolean
+  pontos: number
 }
