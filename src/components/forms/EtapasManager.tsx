@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Ciclista, EtapaResultado, Prova } from '@/types'
+import type { Ciclista, EtapaResultado, PosicaoAdicional, Prova } from '@/types'
 import CyclistAutocomplete from './CyclistAutocomplete'
 
 interface Props {
@@ -19,18 +19,18 @@ export default function EtapasManager({ prova }: Props) {
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [modo, setModo] = useState<'lista' | 'editar'>('lista')
 
-  // Estado do formulário
+  // Formulário
   const [editando, setEditando] = useState<EtapaResultado | null>(null)
   const [numeroEtapa, setNumeroEtapa] = useState<number>(1)
   const [dataEtapa, setDataEtapa] = useState<string>('')
   const [top20, setTop20] = useState<string[]>(Array(20).fill(''))
+  const [adicionais, setAdicionais] = useState<PosicaoAdicional[]>([])
   const [camisolaSprint, setCamisolaSprint] = useState('')
   const [camisolaMontanha, setCamisolaMontanha] = useState('')
   const [camisolaJuventude, setCamisolaJuventude] = useState('')
   const [isFinal, setIsFinal] = useState(false)
   const [preenchidoDeAnterior, setPreenchidoDeAnterior] = useState(false)
 
-  // Carregar etapas + startlist
   useEffect(() => {
     Promise.all([
       fetch(`/api/etapas?prova_id=${provaId}`).then(r => r.json()),
@@ -60,12 +60,14 @@ export default function EtapasManager({ prova }: Props) {
 
     if (ultima) {
       setTop20([...ultima.classificacao_geral_top20])
+      setAdicionais([...(ultima.posicoes_adicionais ?? [])])
       setCamisolaSprint(ultima.camisola_sprint ?? '')
       setCamisolaMontanha(ultima.camisola_montanha ?? '')
       setCamisolaJuventude(ultima.camisola_juventude ?? '')
       setPreenchidoDeAnterior(true)
     } else {
       setTop20(Array(20).fill(''))
+      setAdicionais([])
       setCamisolaSprint('')
       setCamisolaMontanha('')
       setCamisolaJuventude('')
@@ -80,6 +82,7 @@ export default function EtapasManager({ prova }: Props) {
 
   function limparFormulario() {
     setTop20(Array(20).fill(''))
+    setAdicionais([])
     setCamisolaSprint('')
     setCamisolaMontanha('')
     setCamisolaJuventude('')
@@ -91,6 +94,7 @@ export default function EtapasManager({ prova }: Props) {
     setNumeroEtapa(e.numero_etapa)
     setDataEtapa(e.data_etapa)
     setTop20(e.classificacao_geral_top20)
+    setAdicionais(e.posicoes_adicionais ?? [])
     setCamisolaSprint(e.camisola_sprint ?? '')
     setCamisolaMontanha(e.camisola_montanha ?? '')
     setCamisolaJuventude(e.camisola_juventude ?? '')
@@ -135,7 +139,40 @@ export default function EtapasManager({ prova }: Props) {
 
     const invalidos = top20.filter(c => !nomesValidos.has(c.trim()))
     if (invalidos.length > 0) {
-      setErro(`${invalidos.length} ciclista(s) não estão na startlist. Usa o autocomplete.`)
+      setErro(`${invalidos.length} ciclista(s) do Top-20 não estão na startlist.`)
+      return
+    }
+
+    // Validar adicionais
+    for (const a of adicionais) {
+      if (!a.nome.trim()) {
+        setErro('Há posições adicionais sem ciclista escolhido.')
+        return
+      }
+      if (!nomesValidos.has(a.nome.trim())) {
+        setErro(`Ciclista "${a.nome}" não está na startlist.`)
+        return
+      }
+      if (a.posicao <= 20) {
+        setErro('Posições adicionais têm de ser maiores que 20.')
+        return
+      }
+    }
+    const posUnicas = new Set(adicionais.map(a => a.posicao))
+    if (posUnicas.size !== adicionais.length) {
+      setErro('Há posições adicionais repetidas.')
+      return
+    }
+    const nomesTop20 = new Set(top20.map(n => n.trim()))
+    for (const a of adicionais) {
+      if (nomesTop20.has(a.nome.trim())) {
+        setErro(`Ciclista "${a.nome}" já está no Top-20.`)
+        return
+      }
+    }
+    const nomesAd = adicionais.map(a => a.nome.trim())
+    if (new Set(nomesAd).size !== nomesAd.length) {
+      setErro('Há ciclistas repetidos nas posições adicionais.')
       return
     }
 
@@ -158,6 +195,7 @@ export default function EtapasManager({ prova }: Props) {
           numero_etapa: numeroEtapa,
           data_etapa: dataEtapa,
           classificacao_geral_top20: top20.map(c => c.trim()),
+          posicoes_adicionais: adicionais.map(a => ({ posicao: a.posicao, nome: a.nome.trim() })),
           camisola_sprint: camisolaSprint.trim(),
           camisola_montanha: camisolaMontanha.trim(),
           camisola_juventude: camisolaJuventude.trim(),
@@ -181,10 +219,27 @@ export default function EtapasManager({ prova }: Props) {
     }
   }
 
+  function adicionarPosicao() {
+    const proximaPos = adicionais.length > 0
+      ? Math.max(...adicionais.map(a => a.posicao)) + 1
+      : 21
+    setAdicionais([...adicionais, { posicao: proximaPos, nome: '' }])
+  }
+
+  function removerPosicao(idx: number) {
+    setAdicionais(adicionais.filter((_, i) => i !== idx))
+  }
+
+  function atualizarPosicao(idx: number, campo: 'posicao' | 'nome', valor: string | number) {
+    setAdicionais(adicionais.map((a, i) =>
+      i === idx ? { ...a, [campo]: valor } : a
+    ))
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
-        <strong>Como funciona:</strong> insere uma classificação geral acumulada por cada etapa. A pontuação dos jogadores é recalculada automaticamente com base na <strong>etapa mais recente</strong>. Marca a checkbox <em>&quot;Esta é a etapa final&quot;</em> na última etapa para fechar a prova.
+        <strong>Como funciona:</strong> insere a classificação geral (Top-20) por etapa. Opcionalmente, adiciona posições para lá do 20 para os jogadores verem onde estão os ciclistas que apostaram. A pontuação é recalculada automaticamente com base na <strong>etapa mais recente</strong>.
       </div>
 
       {ciclistas.length === 0 && (
@@ -224,18 +279,24 @@ export default function EtapasManager({ prova }: Props) {
             <div className="space-y-2">
               {etapas.map(e => {
                 const ehUltima = e.numero_etapa === Math.max(...etapas.map(x => x.numero_etapa))
+                const numAd = e.posicoes_adicionais?.length ?? 0
                 return (
                   <div
                     key={e.id}
                     className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3"
                   >
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-zinc-100">Etapa {e.numero_etapa}</span>
                         <span className="text-xs text-zinc-500">{e.data_etapa}</span>
                         {e.is_final && (
                           <span className="badge bg-green-900/50 text-green-400 border border-green-800 text-xs">
                             🏁 Final
+                          </span>
+                        )}
+                        {numAd > 0 && (
+                          <span className="badge bg-blue-900/50 text-blue-400 border border-blue-800 text-xs">
+                            +{numAd} adicionais
                           </span>
                         )}
                       </div>
@@ -352,12 +413,72 @@ export default function EtapasManager({ prova }: Props) {
                         setTop20(novo)
                       }}
                       placeholder={`${idx + 1}º lugar`}
-                      usados={top20.filter((_, i) => i !== idx)}
+                      usados={[
+                        ...top20.filter((_, i) => i !== idx),
+                        ...adicionais.map(a => a.nome),
+                      ]}
                     />
                   </div>
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Posições adicionais */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-semibold text-zinc-100">
+                Posições adicionais (opcional)
+              </h2>
+              <button
+                onClick={adicionarPosicao}
+                className="text-sm rounded-md bg-zinc-700 hover:bg-zinc-600 px-3 py-1.5"
+              >
+                ➕ Adicionar
+              </button>
+            </div>
+            <p className="text-zinc-500 text-sm mb-4">
+              Adiciona posições para lá do 20 (ex.: 23º, 35º) para os jogadores verem onde estão os ciclistas que apostaram. Não dão pontos extra — é só informação.
+            </p>
+
+            {adicionais.length === 0 ? (
+              <p className="text-zinc-500 text-sm text-center py-6">
+                Sem posições adicionais. Clica em <strong>Adicionar</strong> para começares.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {adicionais.map((a, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    <input
+                      type="number"
+                      min={21}
+                      className="input-field w-24 flex-shrink-0"
+                      value={a.posicao}
+                      onChange={e => atualizarPosicao(idx, 'posicao', parseInt(e.target.value) || 21)}
+                      placeholder="Pos"
+                    />
+                    <div className="flex-1">
+                      <CyclistAutocomplete
+                        ciclistas={ciclistas}
+                        value={a.nome}
+                        onChange={(v) => atualizarPosicao(idx, 'nome', v)}
+                        placeholder="Ciclista"
+                        usados={[
+                          ...top20,
+                          ...adicionais.filter((_, i) => i !== idx).map(x => x.nome),
+                        ]}
+                      />
+                    </div>
+                    <button
+                      onClick={() => removerPosicao(idx)}
+                      className="px-3 py-2 text-sm rounded-md bg-red-900/40 text-red-300 hover:bg-red-900/60 flex-shrink-0"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="card">
