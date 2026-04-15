@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+const CATEGORIAS_VALIDAS = ['grande_volta', 'prova_semana', 'monumento', 'prova_dia']
+
 async function checkAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -24,7 +26,7 @@ interface Params {
 
 // ============================================================
 // PATCH /api/provas/[provaId]  -> editar uma prova
-// Body: { nome?, data_inicio?, data_fim?, descricao? }
+// Body: { nome?, data_inicio?, data_fim?, descricao?, categoria? }
 // ============================================================
 export async function PATCH(req: NextRequest, { params }: Params) {
   const auth = await checkAdmin()
@@ -41,6 +43,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (typeof body.data_inicio === 'string') update.data_inicio = body.data_inicio
   if (typeof body.data_fim === 'string') update.data_fim = body.data_fim
   if (typeof body.descricao === 'string') update.descricao = body.descricao
+  if (typeof body.categoria === 'string') {
+    if (!CATEGORIAS_VALIDAS.includes(body.categoria)) {
+      return NextResponse.json({ error: 'Categoria inválida.' }, { status: 400 })
+    }
+    update.categoria = body.categoria
+  }
 
   // Validar datas se ambas forem enviadas
   if (update.data_inicio && update.data_fim) {
@@ -60,8 +68,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 // ============================================================
 // DELETE /api/provas/[provaId]  -> apagar uma prova
-// Body: { confirmacao_nome: string }  (tem de bater com o nome da prova)
-// Apaga em cascata: ciclistas, etapas_resultados, apostas, resultados_reais.
+// Body: { confirmacao_nome: string }
 // ============================================================
 export async function DELETE(req: NextRequest, { params }: Params) {
   const auth = await checkAdmin()
@@ -75,7 +82,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     const body = await req.json()
     confirmacaoNome = (body?.confirmacao_nome ?? '').trim()
   } catch {
-    // body opcional — se não vier, falha na verificação abaixo
+    // body opcional
   }
 
   const { data: prova, error: errGet } = await supabase
@@ -94,13 +101,11 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     )
   }
 
-  // Apagar a prova; o ON DELETE CASCADE no schema trata das tabelas dependentes
   const { error: errDel } = await supabase
     .from('provas')
     .delete()
     .eq('id', provaId)
 
   if (errDel) return NextResponse.json({ error: errDel.message }, { status: 500 })
-
   return NextResponse.json({ success: true })
 }
