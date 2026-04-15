@@ -17,9 +17,8 @@ export default async function HomePage() {
 
   const provas = await getProvas()
   const provasCategorizadas = provas.map(categorizarProva)
-  const provasADecorrer = provasCategorizadas.filter(p => p.categoria === 'a_decorrer')
+  const provasADecorrer = provasCategorizadas.filter(p => p.estado === 'a_decorrer')
 
-  // Buscar dados das provas a decorrer (apostas + última etapa de cada)
   const dadosADecorrer = await Promise.all(
     provasADecorrer.map(async (prova) => {
       const [apostas, ultimaEtapa] = await Promise.all([
@@ -30,7 +29,6 @@ export default async function HomePage() {
     })
   )
 
-  // Se não há provas a decorrer, buscar a última finalizada
   let dadosUltimaFinalizada: {
     prova: typeof provas[number]
     apostas: Awaited<ReturnType<typeof getApostasProvaComPerfil>>
@@ -48,12 +46,10 @@ export default async function HomePage() {
     }
   }
 
-  // Vitórias agregadas (históricas + provas finalizadas no sistema)
   const vitorias = await getVitoriasAgregadas()
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-zinc-100">🚴 VeloApostas</h1>
         <p className="text-zinc-400 mt-1">
@@ -62,7 +58,6 @@ export default async function HomePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Coluna principal: classificação + vitórias */}
         <div className="lg:col-span-2 space-y-6">
           {dadosADecorrer.length > 0 ? (
             dadosADecorrer.map(({ prova, apostas, ultimaEtapa }) => (
@@ -86,11 +81,9 @@ export default async function HomePage() {
             </div>
           )}
 
-          {/* Vitórias por jogador */}
           <VitoriasJogadores vitorias={vitorias} />
         </div>
 
-        {/* Coluna lateral: próximas provas */}
         <div>
           <h2 className="text-xl font-semibold text-zinc-100 mb-4">
             Próximas provas
