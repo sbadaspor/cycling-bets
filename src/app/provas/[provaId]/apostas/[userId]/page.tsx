@@ -24,8 +24,7 @@ export default async function ApostaDetalhePage({ params }: Props) {
 
   const cat = categorizarProva(prova)
 
-  // Bloqueio: ver apostas dos outros só em provas a decorrer ou finalizadas
-  if (userId !== user.id && cat.categoria === 'futura') {
+  if (userId !== user.id && cat.estado === 'futura') {
     redirect('/apostas')
   }
 
@@ -53,14 +52,12 @@ export default async function ApostaDetalhePage({ params }: Props) {
   }
 
   const ehProvaUser = userId === user.id
-  const podeEditar = ehProvaUser && cat.categoria === 'futura'
+  const podeEditar = ehProvaUser && cat.estado === 'futura'
 
-  // Ranking nesta prova: posição entre as apostas calculadas
   const apostasOrdenadas = [...todasApostas].sort((a, b) => b.pontos_total - a.pontos_total)
   const ranking = apostasOrdenadas.findIndex(a => a.id === aposta.id) + 1
 
-  // Outras apostas (excluindo a atual) — só mostrar em provas a decorrer/finalizadas
-  const outrasApostas = cat.categoria !== 'futura'
+  const outrasApostas = cat.estado !== 'futura'
     ? todasApostas.filter(a => a.user_id !== userId)
     : []
 
@@ -72,13 +69,13 @@ export default async function ApostaDetalhePage({ params }: Props) {
         </Link>
         <div className="mt-3 flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl font-bold text-zinc-100">{prova.nome}</h1>
-          {cat.categoria === 'a_decorrer' && (
+          {cat.estado === 'a_decorrer' && (
             <span className="badge bg-amber-900/50 text-amber-400 border border-amber-800">🟢 A decorrer</span>
           )}
-          {cat.categoria === 'futura' && (
+          {cat.estado === 'futura' && (
             <span className="badge bg-blue-900/50 text-blue-400 border border-blue-800">⏳ Futura</span>
           )}
-          {cat.categoria === 'finalizada' && (
+          {cat.estado === 'finalizada' && (
             <span className="badge bg-green-900/50 text-green-400 border border-green-800">✅ Finalizada</span>
           )}
         </div>
@@ -104,7 +101,6 @@ export default async function ApostaDetalhePage({ params }: Props) {
         ehProvaUser={ehProvaUser}
       />
 
-      {/* Outras apostas (só em provas não-futuras) */}
       {outrasApostas.length > 0 && (
         <div className="card">
           <h2 className="text-lg font-semibold text-zinc-100 mb-4">
@@ -113,7 +109,7 @@ export default async function ApostaDetalhePage({ params }: Props) {
           <div className="space-y-2">
             {outrasApostas
               .sort((a, b) => b.pontos_total - a.pontos_total)
-              .map((a, idx) => {
+              .map((a) => {
                 const rank = apostasOrdenadas.findIndex(x => x.id === a.id) + 1
                 return (
                   <Link
