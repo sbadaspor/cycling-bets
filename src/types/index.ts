@@ -24,10 +24,14 @@ export interface Prova {
 export interface Ciclista {
   id: string
   prova_id: string
-  nome: string          // ex.: "VAN DER POEL Mathieu"
-  equipa: string        // ex.: "Alpecin-Premier Tech"
-  dorsal?: number       // ex.: 1
+  nome: string
+  equipa: string
+  dorsal?: number
   created_at: string
+}
+export interface PosicaoAdicional {
+  posicao: number   // sempre > 20
+  nome: string
 }
 export interface EtapaResultado {
   id: string
@@ -35,6 +39,7 @@ export interface EtapaResultado {
   numero_etapa: number
   data_etapa: string
   classificacao_geral_top20: string[]
+  posicoes_adicionais: PosicaoAdicional[]
   camisola_sprint?: string
   camisola_montanha?: string
   camisola_juventude?: string
@@ -47,16 +52,14 @@ export interface Aposta {
   id: string
   prova_id: string
   user_id: string
-  apostas_top20: string[] // 20 nomes de ciclistas, índice 0 = 1º lugar
+  apostas_top20: string[]
   camisola_sprint?: string
   camisola_montanha?: string
   camisola_juventude?: string
-  // Pontuação calculada
   pontos_total: number
   pontos_top10: number
   pontos_top20: number
   pontos_camisolas: number
-  // Desempate
   acertos_exatos: number
   acertos_exatos_top10: number
   acertos_exatos_top20: number
@@ -64,14 +67,13 @@ export interface Aposta {
   calculada: boolean
   created_at: string
   updated_at: string
-  // Joins
   perfil?: Perfil
   prova?: Prova
 }
 export interface ResultadoReal {
   id: string
   prova_id: string
-  resultado_top20: string[] // 20 nomes, índice 0 = 1º lugar
+  resultado_top20: string[]
   camisola_sprint?: string
   camisola_montanha?: string
   camisola_juventude?: string
