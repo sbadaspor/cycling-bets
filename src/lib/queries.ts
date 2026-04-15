@@ -203,6 +203,35 @@ export async function countCiclistas(provaId: string): Promise<number> {
 }
 
 // ============================================================
+// APOSTAS — busca específica por id ou por user+prova
+// ============================================================
+
+export async function getApostaPorUser(provaId: string, userId: string): Promise<Aposta | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('apostas')
+    .select(`*, perfil:perfis(*), prova:provas(*)`)
+    .eq('prova_id', provaId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data as Aposta | null
+}
+
+export async function getApostasProvaComPerfil(provaId: string): Promise<Aposta[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('apostas')
+    .select(`*, perfil:perfis(*)`)
+    .eq('prova_id', provaId)
+    .order('pontos_total', { ascending: false })
+
+  if (error) throw error
+  return data as Aposta[]
+}
+
+// ============================================================
 // ETAPAS (classificação geral por etapa)
 // ============================================================
 
