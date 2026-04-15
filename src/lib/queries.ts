@@ -1,5 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
-import type { Aposta, Ciclista, EtapaResultado, LeaderboardEntry, LeaderboardProva, Prova, ResultadoReal } from '@/types'
+import type {
+  Aposta,
+  CategoriaProvaTipo,
+  Ciclista,
+  EtapaResultado,
+  LeaderboardEntry,
+  LeaderboardProva,
+  Prova,
+  ResultadoReal,
+  VitoriaHistorica,
+  VitoriasJogador,
+} from '@/types'
 import { compararDesempate } from '@/lib/pontuacao'
 
 // ============================================================
@@ -72,13 +83,11 @@ export async function getUltimasApostas(userId: string, limit = 10) {
 }
 
 // ============================================================
-// LEADERBOARD GERAL (todas as provas finalizadas)
+// LEADERBOARD GERAL
 // ============================================================
 
 export async function getLeaderboardGeral(): Promise<LeaderboardEntry[]> {
   const supabase = await createClient()
-
-  // Busca todas as apostas de provas finalizadas
   const { data, error } = await supabase
     .from('apostas')
     .select(`
@@ -91,7 +100,6 @@ export async function getLeaderboardGeral(): Promise<LeaderboardEntry[]> {
 
   if (error) throw error
 
-  // Agregar por utilizador
   const mapaUtilizadores = new Map<string, LeaderboardEntry>()
 
   for (const aposta of (data as Aposta[])) {
@@ -203,7 +211,7 @@ export async function countCiclistas(provaId: string): Promise<number> {
 }
 
 // ============================================================
-// APOSTAS — busca específica por id ou por user+prova
+// APOSTAS — busca específica
 // ============================================================
 
 export async function getApostaPorUser(provaId: string, userId: string): Promise<Aposta | null> {
@@ -232,7 +240,7 @@ export async function getApostasProvaComPerfil(provaId: string): Promise<Aposta[
 }
 
 // ============================================================
-// ETAPAS (classificação geral por etapa)
+// ETAPAS
 // ============================================================
 
 export async function getEtapas(provaId: string): Promise<EtapaResultado[]> {
@@ -266,10 +274,6 @@ export async function getProximoNumeroEtapa(provaId: string): Promise<number> {
   return ultima ? ultima.numero_etapa + 1 : 1
 }
 
-// ============================================================
-// Última prova finalizada (para o dashboard quando não há prova a decorrer)
-// ============================================================
-
 export async function getUltimaProvaFinalizada(): Promise<Prova | null> {
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -282,4 +286,93 @@ export async function getUltimaProvaFinalizada(): Promise<Prova | null> {
 
   if (error) throw error
   return data as Prova | null
+}
+
+// ============================================================
+// VITÓRIAS HISTÓRICAS + AGREGADAS
+// ============================================================
+
+export async function getVitoriasHistoricas(): Promise<VitoriaHistorica[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('vitorias_historicas')
+    .select('*, perfil:perfis(*)')
+    .order('ano', { ascending: false })
+
+  if (error) throw error
+  return data as VitoriaHistorica[]
+}
+
+export async function getVitoriasAgregadas(): Promise<VitoriasJogador[]> {
+  const supabase = await createClient()
+
+  const { data: historicasData, error: histErr } = await supabase
+    .from('vitorias_historicas')
+    .select('*, perfil:perfis(*)')
+
+  if (histErr) throw histErr
+  const historicas = historicasData as VitoriaHistorica[]
+
+  const { data: provasFinalizadas, error: pErr } = await supabase
+    .from('provas')
+    .select('id, categoria, nome')
+    .eq('status', 'finalizada')
+    .not('categoria', 'is', null)
+
+  if (pErr) throw pErr
+
+  type Acumulador = Map<string, VitoriasJogador>
+  const acc: Acumulador = new Map()
+
+  function getOrInit(perfil: VitoriaHistorica['perfil']): VitoriasJogador | null {
+    if (!perfil) return null
+    let entry = acc.get(perfil.id)
+    if (!entry) {
+      entry = {
+        perfil,
+        total: 0,
+        porCategoria: {
+          grande_volta: 0,
+          prova_semana: 0,
+          monumento: 0,
+          prova_dia: 0,
+        },
+      }
+      acc.set(perfil.id, entry)
+    }
+    return entry
+  }
+
+  for (const v of historicas) {
+    const entry = getOrInit(v.perfil)
+    if (!entry) continue
+    entry.total++
+    entry.porCategoria[v.categoria]++
+  }
+
+  for (const p of (provasFinalizadas as { id: string; categoria: CategoriaProvaTipo; nome: string }[])) {
+    const lb = await getLeaderboardProva(p.id)
+    if (lb.length === 0) continue
+    const vencedor = lb[0]
+    const perfil = vencedor.perfil
+    if (!perfil) continue
+    let entry = acc.get(perfil.id)
+    if (!entry) {
+      entry = {
+        perfil,
+        total: 0,
+        porCategoria: {
+          grande_volta: 0,
+          prova_semana: 0,
+          monumento: 0,
+          prova_dia: 0,
+        },
+      }
+      acc.set(perfil.id, entry)
+    }
+    entry.total++
+    entry.porCategoria[p.categoria]++
+  }
+
+  return Array.from(acc.values()).sort((a, b) => b.total - a.total)
 }
