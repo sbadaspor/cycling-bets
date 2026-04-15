@@ -46,7 +46,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: '/', label: '🏠 Dashboard' },
-    ...(user ? [{ href: '/apostas', label: '🎯 Apostar' }] : []),
+    ...(user ? [{ href: '/apostas', label: '📋 Minhas Apostas' }] : []),
     ...(perfil?.is_admin ? [{ href: '/admin', label: '⚙️ Admin' }] : []),
   ]
 
