@@ -6,12 +6,12 @@ import type { Ciclista, EtapaResultado, Prova } from '@/types'
 import CyclistAutocomplete from './CyclistAutocomplete'
 
 interface Props {
-  provas: Prova[]
+  prova: Prova
 }
 
-export default function EtapasManager({ provas }: Props) {
+export default function EtapasManager({ prova }: Props) {
   const router = useRouter()
-  const [provaId, setProvaId] = useState<string>('')
+  const provaId = prova.id
   const [etapas, setEtapas] = useState<EtapaResultado[]>([])
   const [ciclistas, setCiclistas] = useState<Ciclista[]>([])
   const [loading, setLoading] = useState(false)
@@ -30,13 +30,8 @@ export default function EtapasManager({ provas }: Props) {
   const [isFinal, setIsFinal] = useState(false)
   const [preenchidoDeAnterior, setPreenchidoDeAnterior] = useState(false)
 
-  // Carregar etapas + startlist quando muda a prova
+  // Carregar etapas + startlist
   useEffect(() => {
-    if (!provaId) {
-      setEtapas([])
-      setCiclistas([])
-      return
-    }
     Promise.all([
       fetch(`/api/etapas?prova_id=${provaId}`).then(r => r.json()),
       fetch(`/api/ciclistas?prova_id=${provaId}`).then(r => r.json()),
@@ -59,7 +54,6 @@ export default function EtapasManager({ provas }: Props) {
     setNumeroEtapa(proximo)
     setDataEtapa(new Date().toISOString().split('T')[0])
 
-    // Pré-preencher com a etapa anterior (se houver) para o admin só editar mudanças
     const ultima = etapas.length > 0
       ? etapas.reduce((a, b) => (a.numero_etapa > b.numero_etapa ? a : b))
       : null
@@ -119,7 +113,6 @@ export default function EtapasManager({ provas }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erro ao apagar')
       setSucesso(`✅ Etapa ${numero} apagada. Pontos recalculados.`)
-      // Recarregar lista
       const eRes = await fetch(`/api/etapas?prova_id=${provaId}`).then(r => r.json())
       setEtapas(eRes.etapas ?? [])
       router.refresh()
@@ -177,7 +170,6 @@ export default function EtapasManager({ provas }: Props) {
       setSucesso(
         `✅ Etapa ${numeroEtapa} guardada. Pontos recalculados para ${data.apostas_calculadas}/${data.total_apostas} apostas.${data.is_final ? ' Prova marcada como FINALIZADA.' : ''}`
       )
-      // Recarregar lista
       const eRes = await fetch(`/api/etapas?prova_id=${provaId}`).then(r => r.json())
       setEtapas(eRes.etapas ?? [])
       setModo('lista')
@@ -189,42 +181,17 @@ export default function EtapasManager({ provas }: Props) {
     }
   }
 
-  // ============================================================
-  // UI
-  // ============================================================
-
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
         <strong>Como funciona:</strong> insere uma classificação geral acumulada por cada etapa. A pontuação dos jogadores é recalculada automaticamente com base na <strong>etapa mais recente</strong>. Marca a checkbox <em>&quot;Esta é a etapa final&quot;</em> na última etapa para fechar a prova.
       </div>
 
-      {/* Seleção de prova */}
-      <div className="card">
-        <label className="block text-sm font-medium text-zinc-400 mb-2">Selecionar Prova</label>
-        <select
-          className="input-field"
-          value={provaId}
-          onChange={e => {
-            setProvaId(e.target.value)
-            setModo('lista')
-            setErro(null)
-            setSucesso(null)
-          }}
-        >
-          <option value="">-- Escolhe uma prova --</option>
-          {provas.map(p => (
-            <option key={p.id} value={p.id}>
-              {p.nome} ({p.status})
-            </option>
-          ))}
-        </select>
-        {provaId && ciclistas.length === 0 && (
-          <p className="mt-2 text-sm text-amber-400">
-            ⚠️ Esta prova ainda não tem startlist carregada. Vai ao separador <strong>Startlist</strong> primeiro.
-          </p>
-        )}
-      </div>
+      {ciclistas.length === 0 && (
+        <div className="bg-amber-900/30 border border-amber-800 rounded-lg px-4 py-3 text-amber-300 text-sm">
+          ⚠️ Esta prova ainda não tem startlist carregada. Vai ao separador <strong>Startlist</strong> primeiro.
+        </div>
+      )}
 
       {erro && (
         <div className="bg-red-900/30 border border-red-800 rounded-lg px-4 py-3 text-red-400 text-sm">
@@ -238,7 +205,7 @@ export default function EtapasManager({ provas }: Props) {
       )}
 
       {/* MODO LISTA */}
-      {provaId && ciclistas.length > 0 && modo === 'lista' && (
+      {ciclistas.length > 0 && modo === 'lista' && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-zinc-100">
@@ -302,7 +269,7 @@ export default function EtapasManager({ provas }: Props) {
       )}
 
       {/* MODO EDITAR */}
-      {provaId && ciclistas.length > 0 && modo === 'editar' && (
+      {ciclistas.length > 0 && modo === 'editar' && (
         <>
           <div className="card">
             <div className="flex items-center justify-between mb-4">
