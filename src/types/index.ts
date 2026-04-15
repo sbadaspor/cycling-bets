@@ -1,9 +1,7 @@
 // ============================================================
 // TIPOS PRINCIPAIS DO SISTEMA
 // ============================================================
-
 export type ProvaStatus = 'aberta' | 'fechada' | 'finalizada'
-
 export interface Perfil {
   id: string
   username: string
@@ -13,7 +11,6 @@ export interface Perfil {
   created_at: string
   updated_at: string
 }
-
 export interface Prova {
   id: string
   nome: string
@@ -24,7 +21,14 @@ export interface Prova {
   created_at: string
   updated_at: string
 }
-
+export interface Ciclista {
+  id: string
+  prova_id: string
+  nome: string          // ex.: "VAN DER POEL Mathieu"
+  equipa: string        // ex.: "Alpecin-Premier Tech"
+  dorsal?: number       // ex.: 1
+  created_at: string
+}
 export interface Aposta {
   id: string
   prova_id: string
@@ -50,7 +54,6 @@ export interface Aposta {
   perfil?: Perfil
   prova?: Prova
 }
-
 export interface ResultadoReal {
   id: string
   prova_id: string
@@ -62,11 +65,9 @@ export interface ResultadoReal {
   created_at: string
   updated_at: string
 }
-
 // ============================================================
 // TIPOS DE UI / FORMULÁRIOS
 // ============================================================
-
 export interface ApostaFormData {
   prova_id: string
   apostas_top20: string[]
@@ -74,7 +75,6 @@ export interface ApostaFormData {
   camisola_montanha: string
   camisola_juventude: string
 }
-
 export interface ResultadoFormData {
   prova_id: string
   resultado_top20: string[]
@@ -82,11 +82,14 @@ export interface ResultadoFormData {
   camisola_montanha: string
   camisola_juventude: string
 }
-
+export interface CiclistaParsed {
+  nome: string
+  equipa: string
+  dorsal?: number
+}
 // ============================================================
 // TIPOS DE LEADERBOARD
 // ============================================================
-
 export interface LeaderboardEntry {
   rank: number
   perfil: Perfil
@@ -103,17 +106,14 @@ export interface LeaderboardEntry {
   acertos_exatos_top20: number
   acertos_camisolas: number
 }
-
 export interface LeaderboardProva {
   rank: number
   perfil: Perfil
   aposta: Aposta
 }
-
 // ============================================================
 // TIPOS DE CÁLCULO DE PONTOS
 // ============================================================
-
 export interface PontosCalculo {
   pontos_total: number
   pontos_top10: number
@@ -125,7 +125,6 @@ export interface PontosCalculo {
   acertos_camisolas: number
   breakdown: PontoBreakdownItem[]
 }
-
 export interface PontoBreakdownItem {
   ciclista: string
   posicao_apostada: number
@@ -134,7 +133,6 @@ export interface PontoBreakdownItem {
   tipo: 'top10_exato' | 'top20_exato' | 'top10_bonus' | 'top20_bonus' | 'fora' | 'nao_top20'
   descricao: string
 }
-
 export interface CamisolaBreakdown {
   tipo: 'sprint' | 'montanha' | 'juventude'
   apostado: string
