@@ -28,6 +28,7 @@ export default function EtapasManager({ provas }: Props) {
   const [camisolaMontanha, setCamisolaMontanha] = useState('')
   const [camisolaJuventude, setCamisolaJuventude] = useState('')
   const [isFinal, setIsFinal] = useState(false)
+  const [preenchidoDeAnterior, setPreenchidoDeAnterior] = useState(false)
 
   // Carregar etapas + startlist quando muda a prova
   useEffect(() => {
@@ -57,14 +58,38 @@ export default function EtapasManager({ provas }: Props) {
     const proximo = etapas.length > 0 ? Math.max(...etapas.map(e => e.numero_etapa)) + 1 : 1
     setNumeroEtapa(proximo)
     setDataEtapa(new Date().toISOString().split('T')[0])
-    setTop20(Array(20).fill(''))
-    setCamisolaSprint('')
-    setCamisolaMontanha('')
-    setCamisolaJuventude('')
+
+    // Pré-preencher com a etapa anterior (se houver) para o admin só editar mudanças
+    const ultima = etapas.length > 0
+      ? etapas.reduce((a, b) => (a.numero_etapa > b.numero_etapa ? a : b))
+      : null
+
+    if (ultima) {
+      setTop20([...ultima.classificacao_geral_top20])
+      setCamisolaSprint(ultima.camisola_sprint ?? '')
+      setCamisolaMontanha(ultima.camisola_montanha ?? '')
+      setCamisolaJuventude(ultima.camisola_juventude ?? '')
+      setPreenchidoDeAnterior(true)
+    } else {
+      setTop20(Array(20).fill(''))
+      setCamisolaSprint('')
+      setCamisolaMontanha('')
+      setCamisolaJuventude('')
+      setPreenchidoDeAnterior(false)
+    }
+
     setIsFinal(false)
     setErro(null)
     setSucesso(null)
     setModo('editar')
+  }
+
+  function limparFormulario() {
+    setTop20(Array(20).fill(''))
+    setCamisolaSprint('')
+    setCamisolaMontanha('')
+    setCamisolaJuventude('')
+    setPreenchidoDeAnterior(false)
   }
 
   function editarEtapa(e: EtapaResultado) {
@@ -76,6 +101,7 @@ export default function EtapasManager({ provas }: Props) {
     setCamisolaMontanha(e.camisola_montanha ?? '')
     setCamisolaJuventude(e.camisola_juventude ?? '')
     setIsFinal(e.is_final)
+    setPreenchidoDeAnterior(false)
     setErro(null)
     setSucesso(null)
     setModo('editar')
@@ -314,6 +340,20 @@ export default function EtapasManager({ provas }: Props) {
               </div>
             </div>
           </div>
+
+          {preenchidoDeAnterior && (
+            <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm text-blue-200 flex items-center justify-between gap-3">
+              <span>
+                ℹ️ Pré-preenchido com a classificação da etapa anterior. Altera apenas as posições que mudaram.
+              </span>
+              <button
+                onClick={limparFormulario}
+                className="text-xs text-blue-300 underline hover:text-blue-100 whitespace-nowrap"
+              >
+                Limpar tudo
+              </button>
+            </div>
+          )}
 
           <div className="card">
             <h2 className="text-lg font-semibold text-zinc-100 mb-1">
