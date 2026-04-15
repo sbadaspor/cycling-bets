@@ -33,9 +33,9 @@ export default function MinhasApostasList({ dadosPorProva, userId }: Props) {
 
   const contagens = useMemo(() => ({
     todas: dadosCategorizados.length,
-    a_decorrer: dadosCategorizados.filter(d => d.cat.categoria === 'a_decorrer').length,
-    futuras: dadosCategorizados.filter(d => d.cat.categoria === 'futura').length,
-    finalizadas: dadosCategorizados.filter(d => d.cat.categoria === 'finalizada').length,
+    a_decorrer: dadosCategorizados.filter(d => d.cat.estado === 'a_decorrer').length,
+    futuras: dadosCategorizados.filter(d => d.cat.estado === 'futura').length,
+    finalizadas: dadosCategorizados.filter(d => d.cat.estado === 'finalizada').length,
   }), [dadosCategorizados])
 
   const filtrados = useMemo(() => {
@@ -45,14 +45,14 @@ export default function MinhasApostasList({ dadosPorProva, userId }: Props) {
       futuras: 'futura',
       finalizadas: 'finalizada',
     }
-    return dadosCategorizados.filter(d => d.cat.categoria === map[filtro])
+    return dadosCategorizados.filter(d => d.cat.estado === map[filtro])
   }, [dadosCategorizados, filtro])
 
   function badgeCategoria(cat: ReturnType<typeof categorizarProva>) {
-    if (cat.categoria === 'a_decorrer') {
+    if (cat.estado === 'a_decorrer') {
       return <span className="badge bg-amber-900/50 text-amber-400 border border-amber-800 text-xs">🟢 A decorrer</span>
     }
-    if (cat.categoria === 'futura') {
+    if (cat.estado === 'futura') {
       const txt = cat.diasAteInicio === 0 ? 'Começa hoje' : cat.diasAteInicio === 1 ? 'Começa amanhã' : `Daqui a ${cat.diasAteInicio} dias`
       return <span className="badge bg-blue-900/50 text-blue-400 border border-blue-800 text-xs">⏳ {txt}</span>
     }
@@ -61,7 +61,6 @@ export default function MinhasApostasList({ dadosPorProva, userId }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Filtros */}
       <div className="flex gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1 flex-wrap w-fit">
         {([
           ['todas', 'Todas', contagens.todas],
@@ -81,7 +80,6 @@ export default function MinhasApostasList({ dadosPorProva, userId }: Props) {
         ))}
       </div>
 
-      {/* Lista */}
       {filtrados.length === 0 ? (
         <div className="card text-center py-12 text-zinc-500">
           <p>Não há provas {filtro !== 'todas' ? 'nesta categoria' : ''}.</p>
@@ -91,10 +89,9 @@ export default function MinhasApostasList({ dadosPorProva, userId }: Props) {
           {filtrados.map(d => {
             const { prova, cat, temAposta, pontos, temStartlist } = d
 
-            // Determinar ação principal
             let acao: { texto: string; href: string; estilo: string; desativado?: boolean } | null = null
 
-            if (cat.categoria === 'futura') {
+            if (cat.estado === 'futura') {
               if (!temStartlist) {
                 acao = { texto: '⏳ Aguarda startlist', href: '#', estilo: 'bg-zinc-800 text-zinc-500 cursor-not-allowed', desativado: true }
               } else if (temAposta) {
@@ -103,7 +100,6 @@ export default function MinhasApostasList({ dadosPorProva, userId }: Props) {
                 acao = { texto: '📝 Apostar', href: `/apostas/${prova.id}`, estilo: 'bg-amber-500 text-zinc-900 hover:bg-amber-400' }
               }
             } else {
-              // A decorrer ou finalizada
               if (temAposta) {
                 acao = { texto: '👁️ Ver minha aposta', href: `/provas/${prova.id}/apostas/${userId}`, estilo: 'bg-zinc-700 text-zinc-100 hover:bg-zinc-600' }
               } else {
@@ -120,7 +116,7 @@ export default function MinhasApostasList({ dadosPorProva, userId }: Props) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-zinc-100">{prova.nome}</span>
                     {badgeCategoria(cat)}
-                    {temAposta && cat.categoria !== 'futura' && (
+                    {temAposta && cat.estado !== 'futura' && (
                       <span className="badge bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs">
                         {pontos} pts
                       </span>
