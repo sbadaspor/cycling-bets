@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Ciclista, EtapaResultado, PosicaoAdicional, Prova } from '@/types'
 import CyclistAutocomplete from './CyclistAutocomplete'
+import { getConfigCategoria } from '@/lib/categoriaConfig'
 
 interface Props {
   prova: Prova
@@ -12,6 +13,10 @@ interface Props {
 export default function EtapasManager({ prova }: Props) {
   const router = useRouter()
   const provaId = prova.id
+  const config = getConfigCategoria(prova.categoria)
+  const numPos = config.numPosicoes
+  const topAlto = numPos === 20 ? 10 : 5
+
   const [etapas, setEtapas] = useState<EtapaResultado[]>([])
   const [ciclistas, setCiclistas] = useState<Ciclista[]>([])
   const [loading, setLoading] = useState(false)
@@ -23,7 +28,7 @@ export default function EtapasManager({ prova }: Props) {
   const [editando, setEditando] = useState<EtapaResultado | null>(null)
   const [numeroEtapa, setNumeroEtapa] = useState<number>(1)
   const [dataEtapa, setDataEtapa] = useState<string>('')
-  const [top20, setTop20] = useState<string[]>(Array(20).fill(''))
+  const [posicoes, setPosicoes] = useState<string[]>(Array(numPos).fill(''))
   const [adicionais, setAdicionais] = useState<PosicaoAdicional[]>([])
   const [camisolaSprint, setCamisolaSprint] = useState('')
   const [camisolaMontanha, setCamisolaMontanha] = useState('')
@@ -58,15 +63,15 @@ export default function EtapasManager({ prova }: Props) {
       ? etapas.reduce((a, b) => (a.numero_etapa > b.numero_etapa ? a : b))
       : null
 
-    if (ultima) {
-      setTop20([...ultima.classificacao_geral_top20])
+    if (ultima && config.multiEtapas) {
+      setPosicoes([...ultima.classificacao_geral_top20.slice(0, numPos)])
       setAdicionais([...(ultima.posicoes_adicionais ?? [])])
       setCamisolaSprint(ultima.camisola_sprint ?? '')
       setCamisolaMontanha(ultima.camisola_montanha ?? '')
       setCamisolaJuventude(ultima.camisola_juventude ?? '')
       setPreenchidoDeAnterior(true)
     } else {
-      setTop20(Array(20).fill(''))
+      setPosicoes(Array(numPos).fill(''))
       setAdicionais([])
       setCamisolaSprint('')
       setCamisolaMontanha('')
@@ -74,14 +79,15 @@ export default function EtapasManager({ prova }: Props) {
       setPreenchidoDeAnterior(false)
     }
 
-    setIsFinal(false)
+    // Em provas de uma só etapa, marcar automaticamente como final
+    setIsFinal(!config.multiEtapas)
     setErro(null)
     setSucesso(null)
     setModo('editar')
   }
 
   function limparFormulario() {
-    setTop20(Array(20).fill(''))
+    setPosicoes(Array(numPos).fill(''))
     setAdicionais([])
     setCamisolaSprint('')
     setCamisolaMontanha('')
@@ -93,12 +99,12 @@ export default function EtapasManager({ prova }: Props) {
     setEditando(e)
     setNumeroEtapa(e.numero_etapa)
     setDataEtapa(e.data_etapa)
-    setTop20(e.classificacao_geral_top20)
+    setPosicoes(e.classificacao_geral_top20.slice(0, numPos))
     setAdicionais(e.posicoes_adicionais ?? [])
     setCamisolaSprint(e.camisola_sprint ?? '')
     setCamisolaMontanha(e.camisola_montanha ?? '')
     setCamisolaJuventude(e.camisola_juventude ?? '')
-    setIsFinal(e.is_final)
+    setIsFinal(e.is_final || !config.multiEtapas)
     setPreenchidoDeAnterior(false)
     setErro(null)
     setSucesso(null)
@@ -131,15 +137,15 @@ export default function EtapasManager({ prova }: Props) {
     setErro(null)
     setSucesso(null)
 
-    const vazios = top20.filter(c => !c.trim())
+    const vazios = posicoes.filter(c => !c.trim())
     if (vazios.length > 0) {
-      setErro(`Faltam ${vazios.length} posições no Top-20.`)
+      setErro(`Faltam ${vazios.length} posições no Top-${numPos}.`)
       return
     }
 
-    const invalidos = top20.filter(c => !nomesValidos.has(c.trim()))
+    const invalidos = posicoes.filter(c => !nomesValidos.has(c.trim()))
     if (invalidos.length > 0) {
-      setErro(`${invalidos.length} ciclista(s) do Top-20 não estão na startlist.`)
+      setErro(`${invalidos.length} ciclista(s) do Top-${numPos} não estão na startlist.`)
       return
     }
 
@@ -153,8 +159,8 @@ export default function EtapasManager({ prova }: Props) {
         setErro(`Ciclista "${a.nome}" não está na startlist.`)
         return
       }
-      if (a.posicao <= 20) {
-        setErro('Posições adicionais têm de ser maiores que 20.')
+      if (a.posicao <= numPos) {
+        setErro(`Posições adicionais têm de ser maiores que ${numPos}.`)
         return
       }
     }
@@ -163,10 +169,10 @@ export default function EtapasManager({ prova }: Props) {
       setErro('Há posições adicionais repetidas.')
       return
     }
-    const nomesTop20 = new Set(top20.map(n => n.trim()))
+    const nomesTop = new Set(posicoes.map(n => n.trim()))
     for (const a of adicionais) {
-      if (nomesTop20.has(a.nome.trim())) {
-        setErro(`Ciclista "${a.nome}" já está no Top-20.`)
+      if (nomesTop.has(a.nome.trim())) {
+        setErro(`Ciclista "${a.nome}" já está no Top-${numPos}.`)
         return
       }
     }
@@ -176,14 +182,20 @@ export default function EtapasManager({ prova }: Props) {
       return
     }
 
-    const camisolas = [camisolaSprint, camisolaMontanha, camisolaJuventude]
-      .map(c => c.trim())
-      .filter(c => c.length > 0)
-    const camisolasInvalidas = camisolas.filter(c => !nomesValidos.has(c))
-    if (camisolasInvalidas.length > 0) {
-      setErro('Ciclista de camisola não está na startlist.')
-      return
+    if (config.temCamisolas) {
+      const camisolas = [camisolaSprint, camisolaMontanha, camisolaJuventude]
+        .map(c => c.trim())
+        .filter(c => c.length > 0)
+      const camisolasInvalidas = camisolas.filter(c => !nomesValidos.has(c))
+      if (camisolasInvalidas.length > 0) {
+        setErro('Ciclista de camisola não está na startlist.')
+        return
+      }
     }
+
+    // Construir array com tamanho 20 (DB exige)
+    const classificacao = [...posicoes.map(c => c.trim())]
+    while (classificacao.length < 20) classificacao.push('')
 
     setLoading(true)
     try {
@@ -194,12 +206,12 @@ export default function EtapasManager({ prova }: Props) {
           prova_id: provaId,
           numero_etapa: numeroEtapa,
           data_etapa: dataEtapa,
-          classificacao_geral_top20: top20.map(c => c.trim()),
+          classificacao_geral_top20: classificacao,
           posicoes_adicionais: adicionais.map(a => ({ posicao: a.posicao, nome: a.nome.trim() })),
-          camisola_sprint: camisolaSprint.trim(),
-          camisola_montanha: camisolaMontanha.trim(),
-          camisola_juventude: camisolaJuventude.trim(),
-          is_final: isFinal,
+          camisola_sprint: config.temCamisolas ? camisolaSprint.trim() : '',
+          camisola_montanha: config.temCamisolas ? camisolaMontanha.trim() : '',
+          camisola_juventude: config.temCamisolas ? camisolaJuventude.trim() : '',
+          is_final: !config.multiEtapas ? true : isFinal,
         }),
       })
       const data = await res.json()
@@ -222,7 +234,7 @@ export default function EtapasManager({ prova }: Props) {
   function adicionarPosicao() {
     const proximaPos = adicionais.length > 0
       ? Math.max(...adicionais.map(a => a.posicao)) + 1
-      : 21
+      : numPos + 1
     setAdicionais([...adicionais, { posicao: proximaPos, nome: '' }])
   }
 
@@ -236,10 +248,23 @@ export default function EtapasManager({ prova }: Props) {
     ))
   }
 
+  // Verificar se já há uma etapa (caso prova não seja multi-etapas)
+  const tituloLista = config.multiEtapas ? 'Etapas inseridas' : 'Resultado da prova'
+  const btnNovaEtapa = config.multiEtapas ? '➕ Nova etapa' : '➕ Inserir resultado'
+  const podeCriarNova = config.multiEtapas || etapas.length === 0
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
-        <strong>Como funciona:</strong> insere a classificação geral (Top-20) por etapa. Opcionalmente, adiciona posições para lá do 20 para os jogadores verem onde estão os ciclistas que apostaram. A pontuação é recalculada automaticamente com base na <strong>etapa mais recente</strong>.
+        {config.multiEtapas ? (
+          <>
+            <strong>Como funciona:</strong> insere a classificação geral (Top-{numPos}) por etapa. Opcionalmente, adiciona posições para lá do {numPos} para os jogadores verem onde estão os ciclistas que apostaram. A pontuação é recalculada automaticamente com base na <strong>etapa mais recente</strong>.
+          </>
+        ) : (
+          <>
+            <strong>Como funciona:</strong> esta prova ({config.label}) tem apenas uma classificação final. Insere o Top-{numPos} e a prova fica automaticamente finalizada.
+          </>
+        )}
       </div>
 
       {ciclistas.length === 0 && (
@@ -264,16 +289,20 @@ export default function EtapasManager({ prova }: Props) {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-zinc-100">
-              Etapas inseridas ({etapas.length})
+              {tituloLista} {config.multiEtapas && `(${etapas.length})`}
             </h2>
-            <button onClick={novaEtapa} className="btn-primary">
-              ➕ Nova etapa
-            </button>
+            {podeCriarNova && (
+              <button onClick={novaEtapa} className="btn-primary">
+                {btnNovaEtapa}
+              </button>
+            )}
           </div>
 
           {etapas.length === 0 ? (
             <p className="text-zinc-500 text-sm py-8 text-center">
-              Ainda não há etapas inseridas. Clica em <strong>Nova etapa</strong> para começar.
+              {config.multiEtapas
+                ? 'Ainda não há etapas inseridas. Clica em Nova etapa para começar.'
+                : 'Ainda não há resultado inserido. Clica em Inserir resultado para começar.'}
             </p>
           ) : (
             <div className="space-y-2">
@@ -287,9 +316,14 @@ export default function EtapasManager({ prova }: Props) {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-zinc-100">Etapa {e.numero_etapa}</span>
+                        {config.multiEtapas && (
+                          <span className="font-bold text-zinc-100">Etapa {e.numero_etapa}</span>
+                        )}
+                        {!config.multiEtapas && (
+                          <span className="font-bold text-zinc-100">Resultado</span>
+                        )}
                         <span className="text-xs text-zinc-500">{e.data_etapa}</span>
-                        {e.is_final && (
+                        {e.is_final && config.multiEtapas && (
                           <span className="badge bg-green-900/50 text-green-400 border border-green-800 text-xs">
                             🏁 Final
                           </span>
@@ -301,7 +335,7 @@ export default function EtapasManager({ prova }: Props) {
                         )}
                       </div>
                       <div className="text-xs text-zinc-500 mt-1">
-                        Líder: <span className="text-amber-400">{e.classificacao_geral_top20[0]}</span>
+                        Vencedor: <span className="text-amber-400">{e.classificacao_geral_top20[0]}</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -335,30 +369,34 @@ export default function EtapasManager({ prova }: Props) {
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-zinc-100">
-                {editando ? `Editar Etapa ${editando.numero_etapa}` : `Nova Etapa ${numeroEtapa}`}
+                {editando
+                  ? (config.multiEtapas ? `Editar Etapa ${editando.numero_etapa}` : 'Editar resultado')
+                  : (config.multiEtapas ? `Nova Etapa ${numeroEtapa}` : 'Inserir resultado')}
               </h2>
               <button
                 onClick={() => setModo('lista')}
                 className="text-sm text-zinc-400 hover:text-zinc-100"
               >
-                ← Voltar à lista
+                ← Voltar
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1.5">Nº Etapa *</label>
-                <input
-                  type="number"
-                  min={1}
-                  className="input-field"
-                  value={numeroEtapa}
-                  onChange={e => setNumeroEtapa(parseInt(e.target.value) || 1)}
-                  disabled={!!editando}
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-zinc-400 mb-1.5">Data da Etapa *</label>
+              {config.multiEtapas && (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">Nº Etapa *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="input-field"
+                    value={numeroEtapa}
+                    onChange={e => setNumeroEtapa(parseInt(e.target.value) || 1)}
+                    disabled={!!editando}
+                  />
+                </div>
+              )}
+              <div className={config.multiEtapas ? 'sm:col-span-2' : 'sm:col-span-3'}>
+                <label className="block text-sm font-medium text-zinc-400 mb-1.5">Data *</label>
                 <input
                   type="date"
                   className="input-field"
@@ -385,18 +423,22 @@ export default function EtapasManager({ prova }: Props) {
 
           <div className="card">
             <h2 className="text-lg font-semibold text-zinc-100 mb-1">
-              Classificação Geral após Etapa {numeroEtapa}
+              {config.multiEtapas
+                ? `Classificação Geral após Etapa ${numeroEtapa}`
+                : `Classificação final Top-${numPos}`}
             </h2>
             <p className="text-zinc-500 text-sm mb-4">
-              Top 20 da geral acumulada (não o pódio do dia).
+              {config.multiEtapas
+                ? `Top ${numPos} da geral acumulada (não o pódio do dia).`
+                : `Ordem de chegada dos ${numPos} primeiros.`}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {top20.map((nome, idx) => (
+              {posicoes.map((nome, idx) => (
                 <div key={idx} className="flex items-start gap-3">
                   <div className={`
                     w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold flex-shrink-0 mt-2
-                    ${idx < 10
+                    ${idx < topAlto
                       ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                       : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
                     }
@@ -408,13 +450,13 @@ export default function EtapasManager({ prova }: Props) {
                       ciclistas={ciclistas}
                       value={nome}
                       onChange={(v) => {
-                        const novo = [...top20]
+                        const novo = [...posicoes]
                         novo[idx] = v
-                        setTop20(novo)
+                        setPosicoes(novo)
                       }}
                       placeholder={`${idx + 1}º lugar`}
                       usados={[
-                        ...top20.filter((_, i) => i !== idx),
+                        ...posicoes.filter((_, i) => i !== idx),
                         ...adicionais.map(a => a.nome),
                       ]}
                     />
@@ -438,7 +480,7 @@ export default function EtapasManager({ prova }: Props) {
               </button>
             </div>
             <p className="text-zinc-500 text-sm mb-4">
-              Adiciona posições para lá do 20 (ex.: 23º, 35º) para os jogadores verem onde estão os ciclistas que apostaram. Não dão pontos extra — é só informação.
+              Adiciona posições para lá do {numPos} (ex.: {numPos + 3}º, {numPos + 10}º) para os jogadores verem onde estão os ciclistas que apostaram. Não dão pontos extra — é só informação.
             </p>
 
             {adicionais.length === 0 ? (
@@ -451,10 +493,10 @@ export default function EtapasManager({ prova }: Props) {
                   <div key={idx} className="flex items-start gap-2">
                     <input
                       type="number"
-                      min={21}
+                      min={numPos + 1}
                       className="input-field w-24 flex-shrink-0"
                       value={a.posicao}
-                      onChange={e => atualizarPosicao(idx, 'posicao', parseInt(e.target.value) || 21)}
+                      onChange={e => atualizarPosicao(idx, 'posicao', parseInt(e.target.value) || (numPos + 1))}
                       placeholder="Pos"
                     />
                     <div className="flex-1">
@@ -464,7 +506,7 @@ export default function EtapasManager({ prova }: Props) {
                         onChange={(v) => atualizarPosicao(idx, 'nome', v)}
                         placeholder="Ciclista"
                         usados={[
-                          ...top20,
+                          ...posicoes,
                           ...adicionais.filter((_, i) => i !== idx).map(x => x.nome),
                         ]}
                       />
@@ -481,55 +523,69 @@ export default function EtapasManager({ prova }: Props) {
             )}
           </div>
 
-          <div className="card">
-            <h2 className="text-lg font-semibold text-zinc-100 mb-4">🎽 Camisolas Atuais</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1.5">🟢 Sprint</label>
-                <CyclistAutocomplete
-                  ciclistas={ciclistas}
-                  value={camisolaSprint}
-                  onChange={setCamisolaSprint}
-                  placeholder="Líder dos pontos"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1.5">🔴 Montanha</label>
-                <CyclistAutocomplete
-                  ciclistas={ciclistas}
-                  value={camisolaMontanha}
-                  onChange={setCamisolaMontanha}
-                  placeholder="Líder da montanha"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1.5">⚪ Juventude</label>
-                <CyclistAutocomplete
-                  ciclistas={ciclistas}
-                  value={camisolaJuventude}
-                  onChange={setCamisolaJuventude}
-                  placeholder="Melhor jovem"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isFinal}
-                onChange={e => setIsFinal(e.target.checked)}
-                className="w-5 h-5"
-              />
-              <div>
-                <div className="font-medium text-zinc-100">🏁 Esta é a etapa final</div>
-                <div className="text-xs text-zinc-500">
-                  Marca a prova como finalizada e fixa esta classificação como resultado oficial.
+          {/* Camisolas (só para categorias que têm) */}
+          {config.temCamisolas && (
+            <div className="card">
+              <h2 className="text-lg font-semibold text-zinc-100 mb-4">🎽 Camisolas Atuais</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">🟢 Sprint</label>
+                  <CyclistAutocomplete
+                    ciclistas={ciclistas}
+                    value={camisolaSprint}
+                    onChange={setCamisolaSprint}
+                    placeholder="Líder dos pontos"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">🔴 Montanha</label>
+                  <CyclistAutocomplete
+                    ciclistas={ciclistas}
+                    value={camisolaMontanha}
+                    onChange={setCamisolaMontanha}
+                    placeholder="Líder da montanha"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-1.5">⚪ Juventude</label>
+                  <CyclistAutocomplete
+                    ciclistas={ciclistas}
+                    value={camisolaJuventude}
+                    onChange={setCamisolaJuventude}
+                    placeholder="Melhor jovem"
+                  />
                 </div>
               </div>
-            </label>
-          </div>
+            </div>
+          )}
+
+          {/* Checkbox "etapa final" só para multi-etapas */}
+          {config.multiEtapas && (
+            <div className="card">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isFinal}
+                  onChange={e => setIsFinal(e.target.checked)}
+                  className="w-5 h-5"
+                />
+                <div>
+                  <div className="font-medium text-zinc-100">🏁 Esta é a etapa final</div>
+                  <div className="text-xs text-zinc-500">
+                    Marca a prova como finalizada e fixa esta classificação como resultado oficial.
+                  </div>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {!config.multiEtapas && (
+            <div className="card border-green-900/40 bg-green-950/20">
+              <p className="text-sm text-green-200">
+                ℹ️ Ao guardar, a prova fica automaticamente marcada como <strong>finalizada</strong> (provas de {config.label.toLowerCase()} têm apenas um resultado).
+              </p>
+            </div>
+          )}
 
           <button
             onClick={guardarEtapa}
@@ -539,8 +595,8 @@ export default function EtapasManager({ prova }: Props) {
             {loading
               ? '⏳ A guardar e recalcular pontos...'
               : editando
-                ? '💾 Atualizar Etapa'
-                : '➕ Guardar Etapa'}
+                ? '💾 Atualizar'
+                : '➕ Guardar'}
           </button>
         </>
       )}
