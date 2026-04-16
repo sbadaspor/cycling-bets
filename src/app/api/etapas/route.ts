@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { calcularPontos } from '@/lib/pontuacao'
+import type { CategoriaProvaTipo } from '@/types'
 
 // ============================================================
 // Helper: verificar se utilizador é admin
@@ -37,6 +38,15 @@ async function recalcularPontosProva(
     .order('numero_etapa', { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  // Buscar categoria da prova
+  const { data: prova } = await supabase
+    .from('provas')
+    .select('categoria')
+    .eq('id', provaId)
+    .single()
+
+  const categoria: CategoriaProvaTipo | undefined = prova?.categoria ?? undefined
 
   const { data: apostas, error: apErr } = await supabase
     .from('apostas')
@@ -84,7 +94,8 @@ async function recalcularPontosProva(
       aposta.apostas_top20,
       ultimaEtapa.classificacao_geral_top20,
       apostaCamisolas,
-      resultadoCamisolas
+      resultadoCamisolas,
+      categoria
     )
 
     const { error: upErr } = await supabase
@@ -199,25 +210,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'prova_id, numero_etapa e data_etapa são obrigatórios.' }, { status: 400 })
   }
   if (!Array.isArray(classificacao_geral_top20) || classificacao_geral_top20.length !== 20) {
-    return NextResponse.json({ error: 'classificacao_geral_top20 tem de ter exatamente 20 ciclistas.' }, { status: 400 })
-  }
-  if (classificacao_geral_top20.some((c: string) => !c || !c.trim())) {
-    return NextResponse.json({ error: 'Há posições vazias na classificação.' }, { status: 400 })
+    return NextResponse.json({ error: 'classificacao_geral_top20 tem de ter exatamente 20 posições (preenche só as usadas pela categoria).' }, { status: 400 })
   }
 
-  // Validar posições adicionais
+  // Buscar categoria para saber quantas posições validar
+  const { data: prova } = await supabase
+    .from('provas')
+    .select('categoria')
+    .eq('id', prova_id)
+    .single()
+
+  const categoria: CategoriaProvaTipo | undefined = prova?.categoria ?? undefined
+  const numPos = categoria === 'monumento' || categoria === 'prova_dia' ? 10 : 20
+
+  // Validar as primeiras numPos posições como obrigatórias; o resto pode ficar vazio
+  for (let i = 0; i < numPos; i++) {
+    if (!classificacao_geral_top20[i] || !classificacao_geral_top20[i].trim()) {
+      return NextResponse.json({ error: `Posição ${i + 1} está vazia.` }, { status: 400 })
+    }
+  }
+
+  // Validar posições adicionais (só fazem sentido para top-20)
   let posicoesAdicionaisLimpas: { posicao: number; nome: string }[] = []
   if (Array.isArray(posicoes_adicionais)) {
     const posVistas = new Set<number>()
     const nomesVistos = new Set<string>()
-    const nomesTop20 = new Set(classificacao_geral_top20.map((n: string) => n.trim()))
+    const nomesTop20 = new Set(
+      classificacao_geral_top20
+        .slice(0, numPos)
+        .map((n: string) => n.trim())
+    )
 
     for (const item of posicoes_adicionais) {
       if (!item || typeof item.posicao !== 'number' || typeof item.nome !== 'string') continue
       const nome = item.nome.trim()
       if (!nome) continue
-      if (item.posicao <= 20) {
-        return NextResponse.json({ error: `Posições adicionais têm de ser maiores que 20. Encontrei posição ${item.posicao}.` }, { status: 400 })
+      if (item.posicao <= numPos) {
+        return NextResponse.json({ error: `Posições adicionais têm de ser maiores que ${numPos}.` }, { status: 400 })
       }
       if (posVistas.has(item.posicao)) {
         return NextResponse.json({ error: `Posição ${item.posicao} aparece mais que uma vez nas posições adicionais.` }, { status: 400 })
