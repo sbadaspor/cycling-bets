@@ -2,6 +2,7 @@
 
 import type { Aposta, EtapaResultado } from '@/types'
 import { calcularPontos, calcularCamisolas } from '@/lib/pontuacao'
+import { getConfigCategoria } from '@/lib/categoriaConfig'
 
 interface Props {
   aposta: Aposta
@@ -10,6 +11,12 @@ interface Props {
 }
 
 export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Props) {
+  const categoria = aposta.prova?.categoria
+  const config = getConfigCategoria(categoria)
+  const numPos = config.numPosicoes
+  const topAlto = numPos === 20 ? 10 : 5
+  const topBaixo = numPos === 20 ? 20 : 10
+
   const resultado = ultimaEtapa?.classificacao_geral_top20 ?? Array(20).fill('')
   const adicionais = ultimaEtapa?.posicoes_adicionais ?? []
   const camisolasReais = {
@@ -24,16 +31,16 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
   }
 
   const calc = ultimaEtapa
-    ? calcularPontos(aposta.apostas_top20, resultado, camisolasAposta, camisolasReais)
+    ? calcularPontos(aposta.apostas_top20, resultado, camisolasAposta, camisolasReais, categoria)
     : null
 
-  const camisolaBreakdown = ultimaEtapa
+  const camisolaBreakdown = ultimaEtapa && config.temCamisolas
     ? calcularCamisolas(camisolasAposta, camisolasReais)
     : []
 
-  // Mapa: ciclista -> posição real (top 20 + adicionais)
+  // Mapa: ciclista -> posição real (top N + adicionais)
   const posReal = new Map<string, number>()
-  resultado.forEach((c, i) => {
+  resultado.slice(0, numPos).forEach((c, i) => {
     if (c?.trim()) posReal.set(c.trim().toLowerCase(), i + 1)
   })
   adicionais.forEach(a => {
@@ -49,21 +56,21 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
     let classe = 'bg-zinc-900/50'
 
     if (pr !== null) {
-      const apostadoTop10 = posApostada <= 10
-      const realTop10 = pr <= 10
-      const realTop20 = pr <= 20
+      const apostadoNoAlto = posApostada <= topAlto
+      const realNoAlto = pr <= topAlto
+      const realNoBaixo = pr <= topBaixo
 
-      if (apostadoTop10 && realTop10) {
+      if (apostadoNoAlto && realNoAlto) {
         pts = 3
         classe = pr === posApostada
           ? 'bg-emerald-900/30 border-emerald-700/40'
           : 'bg-green-900/20 border-green-800/40'
-      } else if (!apostadoTop10 && realTop20 && pr > 10) {
+      } else if (!apostadoNoAlto && realNoBaixo && pr > topAlto) {
         pts = 2
         classe = pr === posApostada
           ? 'bg-emerald-900/30 border-emerald-700/40'
           : 'bg-amber-900/20 border-amber-800/40'
-      } else if (!apostadoTop10 && realTop10) {
+      } else if (!apostadoNoAlto && realNoAlto) {
         pts = 1
         classe = 'bg-amber-900/20 border-amber-800/40'
       }
@@ -87,22 +94,24 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className={`grid grid-cols-2 ${config.temCamisolas ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-3`}>
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
-                <div className="text-xs text-zinc-500 mb-1">Top 1-10</div>
+                <div className="text-xs text-zinc-500 mb-1">Top 1-{topAlto}</div>
                 <div className="text-2xl font-bold text-amber-400">{calc!.pontos_top10}</div>
                 <div className="text-xs text-zinc-500 mt-1">3 pts/acerto</div>
               </div>
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
-                <div className="text-xs text-zinc-500 mb-1">Top 11-20</div>
+                <div className="text-xs text-zinc-500 mb-1">Top {topAlto + 1}-{topBaixo}</div>
                 <div className="text-2xl font-bold text-zinc-200">{calc!.pontos_top20}</div>
                 <div className="text-xs text-zinc-500 mt-1">2 pts/acerto + 1 bónus</div>
               </div>
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
-                <div className="text-xs text-zinc-500 mb-1">Camisolas</div>
-                <div className="text-2xl font-bold text-zinc-200">{calc!.pontos_camisolas}</div>
-                <div className="text-xs text-zinc-500 mt-1">1 pt/acerto</div>
-              </div>
+              {config.temCamisolas && (
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
+                  <div className="text-xs text-zinc-500 mb-1">Camisolas</div>
+                  <div className="text-2xl font-bold text-zinc-200">{calc!.pontos_camisolas}</div>
+                  <div className="text-xs text-zinc-500 mt-1">1 pt/acerto</div>
+                </div>
+              )}
               <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-center">
                 <div className="text-xs text-amber-300 mb-1">Total</div>
                 <div className="text-3xl font-bold text-amber-400">{calc!.pontos_total}</div>
@@ -117,7 +126,7 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
         )}
       </div>
 
-      {/* Top 20 apostado */}
+      {/* Top apostado */}
       <div className="card">
         <h2 className="text-lg font-semibold text-zinc-100 mb-4">A minha aposta</h2>
 
@@ -131,7 +140,7 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: 20 }).map((_, idx) => {
+              {Array.from({ length: numPos }).map((_, idx) => {
                 const apostado = aposta.apostas_top20[idx] ?? ''
                 const posApostada = idx + 1
                 const { pts, posReal: pr, classe } = dadosLinha(apostado, posApostada)
@@ -143,7 +152,7 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
                   >
                     <td className="py-2 px-2">
                       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-xs font-bold ${
-                        idx < 10
+                        posApostada <= topAlto
                           ? 'bg-amber-500/20 text-amber-400'
                           : 'bg-zinc-800 text-zinc-400'
                       }`}>
@@ -159,9 +168,9 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
                               <span className={`text-xs px-2 py-0.5 rounded ${
                                 pr === posApostada
                                   ? 'bg-emerald-500/20 text-emerald-300'
-                                  : pr <= 10
+                                  : pr <= topAlto
                                     ? 'bg-green-500/20 text-green-300'
-                                    : pr <= 20
+                                    : pr <= topBaixo
                                       ? 'bg-amber-500/20 text-amber-300'
                                       : 'bg-zinc-700 text-zinc-300'
                               }`}>
@@ -197,53 +206,55 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
         {ultimaEtapa && (
           <div className="mt-4 text-xs text-zinc-500 flex flex-wrap gap-x-4 gap-y-1">
             <span>✓ posição exata</span>
-            <span>→ está no Top-20</span>
-            <span>→ XXº = posição real (fora do Top-20)</span>
+            <span>→ está no Top-{topBaixo}</span>
+            <span>→ XXº = posição real (fora do Top-{topBaixo})</span>
             <span>fora = sem informação de posição</span>
           </div>
         )}
       </div>
 
-      {/* Camisolas */}
-      <div className="card">
-        <h2 className="text-lg font-semibold text-zinc-100 mb-4">🎽 Camisolas</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[
-            { tipo: 'sprint' as const, label: '🟢 Sprint', apostado: camisolasAposta.sprint, real: camisolasReais.sprint },
-            { tipo: 'montanha' as const, label: '🔴 Montanha', apostado: camisolasAposta.montanha, real: camisolasReais.montanha },
-            { tipo: 'juventude' as const, label: '⚪ Juventude', apostado: camisolasAposta.juventude, real: camisolasReais.juventude },
-          ].map(c => {
-            const breakdown = camisolaBreakdown.find(b => b.tipo === c.tipo)
-            const acertou = breakdown?.acertou ?? false
-            return (
-              <div
-                key={c.tipo}
-                className={`rounded-lg border p-3 ${
-                  ultimaEtapa && acertou
-                    ? 'border-emerald-700/40 bg-emerald-900/20'
-                    : 'border-zinc-800 bg-zinc-900/50'
-                }`}
-              >
-                <div className="text-xs text-zinc-500 mb-1">{c.label}</div>
-                <div className="text-sm text-zinc-100 font-medium">
-                  {c.apostado || <span className="text-zinc-600">— sem aposta —</span>}
-                </div>
-                {ultimaEtapa && (
-                  <div className="text-xs mt-2 pt-2 border-t border-zinc-800">
-                    <span className="text-zinc-500">Real: </span>
-                    <span className="text-zinc-300">{c.real || '—'}</span>
-                    {c.apostado && (
-                      <span className={`ml-2 font-bold ${acertou ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                        {acertou ? '✓ +1 pt' : '✗ 0 pts'}
-                      </span>
-                    )}
+      {/* Camisolas (só para categorias que têm) */}
+      {config.temCamisolas && (
+        <div className="card">
+          <h2 className="text-lg font-semibold text-zinc-100 mb-4">🎽 Camisolas</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { tipo: 'sprint' as const, label: '🟢 Sprint', apostado: camisolasAposta.sprint, real: camisolasReais.sprint },
+              { tipo: 'montanha' as const, label: '🔴 Montanha', apostado: camisolasAposta.montanha, real: camisolasReais.montanha },
+              { tipo: 'juventude' as const, label: '⚪ Juventude', apostado: camisolasAposta.juventude, real: camisolasReais.juventude },
+            ].map(c => {
+              const breakdown = camisolaBreakdown.find(b => b.tipo === c.tipo)
+              const acertou = breakdown?.acertou ?? false
+              return (
+                <div
+                  key={c.tipo}
+                  className={`rounded-lg border p-3 ${
+                    ultimaEtapa && acertou
+                      ? 'border-emerald-700/40 bg-emerald-900/20'
+                      : 'border-zinc-800 bg-zinc-900/50'
+                  }`}
+                >
+                  <div className="text-xs text-zinc-500 mb-1">{c.label}</div>
+                  <div className="text-sm text-zinc-100 font-medium">
+                    {c.apostado || <span className="text-zinc-600">— sem aposta —</span>}
                   </div>
-                )}
-              </div>
-            )
-          })}
+                  {ultimaEtapa && (
+                    <div className="text-xs mt-2 pt-2 border-t border-zinc-800">
+                      <span className="text-zinc-500">Real: </span>
+                      <span className="text-zinc-300">{c.real || '—'}</span>
+                      {c.apostado && (
+                        <span className={`ml-2 font-bold ${acertou ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                          {acertou ? '✓ +1 pt' : '✗ 0 pts'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
