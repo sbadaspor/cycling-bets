@@ -10,9 +10,6 @@ export default async function ApostasPage() {
 
   const provas = await getProvas()
 
-  // Para cada prova, buscar:
-  // - Se o user tem aposta
-  // - Quantos ciclistas tem na startlist
   const dadosPorProva = await Promise.all(
     provas.map(async (p) => {
       const { data: aposta } = await supabase
@@ -34,11 +31,20 @@ export default async function ApostasPage() {
   )
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-zinc-100">📋 Minhas Apostas</h1>
-        <p className="text-zinc-400 mt-1">
-          Aposta nas provas futuras e consulta as tuas apostas nas provas a decorrer e finalizadas.
+    <div className="max-w-2xl mx-auto">
+      <div className="animate-fade-up" style={{ marginBottom: '1.5rem' }}>
+        <p style={{ fontSize: '0.7rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.3rem' }}>
+          📋 Gestão
+        </p>
+        <h1 style={{
+          fontFamily: 'Barlow Condensed, sans-serif',
+          fontSize: '2rem', fontWeight: 900, textTransform: 'uppercase',
+          letterSpacing: '0.03em', lineHeight: 1, marginBottom: '0.4rem',
+        }}>
+          Minhas <span style={{ color: 'var(--lime)' }}>Apostas</span>
+        </h1>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-dim)' }}>
+          Aposta nas provas futuras e acompanha os resultados.
         </p>
       </div>
 
