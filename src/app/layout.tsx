@@ -13,11 +13,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt" className="dark">
       <body className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
         <Navbar />
-        <main className="max-w-2xl lg:max-w-7xl mx-auto px-4 sm:px-5 lg:px-8 py-5 lg:py-8">
+        <main
+          className="max-w-2xl lg:max-w-7xl mx-auto px-4 sm:px-5 lg:px-8 py-5 lg:py-8"
+          style={{ paddingBottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}
+        >
           {children}
         </main>
-        {/* Bottom nav spacer — only on mobile */}
-        <div className="bottom-nav-spacer lg:hidden" />
       </body>
     </html>
   )
