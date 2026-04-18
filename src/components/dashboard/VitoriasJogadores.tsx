@@ -5,57 +5,71 @@ interface Props {
 }
 
 const CATEGORIAS: { tipo: CategoriaProvaTipo; label: string; emoji: string }[] = [
-  { tipo: 'grande_volta', label: 'Grandes Voltas', emoji: '🏔️' },
-  { tipo: 'prova_semana', label: 'Provas de uma semana', emoji: '📅' },
-  { tipo: 'monumento', label: 'Monumentos', emoji: '🗿' },
-  { tipo: 'prova_dia', label: 'Provas de um dia', emoji: '⚡' },
+  { tipo: 'grande_volta',  label: 'Grandes Voltas',      emoji: '🏔️' },
+  { tipo: 'prova_semana',  label: 'Provas de uma semana', emoji: '📅' },
+  { tipo: 'monumento',     label: 'Monumentos',           emoji: '🗿' },
+  { tipo: 'prova_dia',     label: 'Provas de um dia',     emoji: '⚡' },
 ]
 
 export default function VitoriasJogadores({ vitorias }: Props) {
-  if (vitorias.length === 0) {
-    return null
-  }
+  if (vitorias.length === 0) return null
 
-  // Determinar quais categorias têm pelo menos 1 vitória (para esconder colunas vazias)
   const categoriasComVitorias = CATEGORIAS.filter(c =>
     vitorias.some(v => v.porCategoria[c.tipo] > 0)
   )
-
   const maxTotal = Math.max(...vitorias.map(v => v.total))
+  const medals = ['🥇', '🥈', '🥉']
 
   return (
-    <div className="space-y-6">
-      {/* Quadro de vitórias totais */}
-      <div className="card">
-        <h2 className="text-lg font-semibold text-zinc-100 mb-4">
-          🏆 Vitórias totais
-        </h2>
-        <div className="space-y-2">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      {/* Vitórias totais */}
+      <div className="card-flush animate-fade-up">
+        <div style={{ padding: '1rem 1.25rem 0.85rem', borderBottom: '1px solid var(--border)' }}>
+          <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.15rem' }}>
+            🏆 Vitórias
+          </p>
+          <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Hall of Fame</h2>
+        </div>
+        <div style={{ padding: '0.75rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
           {vitorias.map((v, idx) => {
-            const medalha = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null
-            const percentagem = maxTotal > 0 ? (v.total / maxTotal) * 100 : 0
+            const pct = maxTotal > 0 ? (v.total / maxTotal) * 100 : 0
             return (
-              <div
-                key={v.perfil.id}
-                className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3"
-              >
-                <span className="inline-flex items-center justify-center w-10 h-10 rounded-md bg-zinc-800 text-base font-bold text-zinc-300 flex-shrink-0">
-                  {medalha ?? `#${idx + 1}`}
+              <div key={v.perfil.id} style={{
+                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                padding: '0.75rem', borderRadius: '0.75rem',
+                background: idx === 0 ? 'rgba(200,244,0,0.06)' : 'var(--surface-2)',
+                border: `1px solid ${idx === 0 ? 'rgba(200,244,0,0.18)' : 'var(--border)'}`,
+              }}>
+                <span style={{
+                  fontSize: idx < 3 ? '1.25rem' : '0.8rem',
+                  fontFamily: 'Barlow Condensed, sans-serif',
+                  fontWeight: 800, width: 32, textAlign: 'center', flexShrink: 0,
+                  color: 'var(--text-dim)',
+                }}>
+                  {medals[idx] ?? `#${idx + 1}`}
                 </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-zinc-100 font-medium truncate">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: idx === 0 ? 'var(--lime)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {v.perfil.username}
                     </span>
-                    <span className="text-amber-400 font-bold whitespace-nowrap">
-                      {v.total} {v.total === 1 ? 'vitória' : 'vitórias'}
+                    <span style={{
+                      fontFamily: 'Barlow Condensed, sans-serif',
+                      fontSize: '1rem', fontWeight: 800,
+                      color: idx === 0 ? 'var(--lime)' : 'var(--text-dim)',
+                      flexShrink: 0, marginLeft: '0.5rem',
+                    }}>
+                      {v.total}×
                     </span>
                   </div>
-                  <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-amber-500 rounded-full transition-all"
-                      style={{ width: `${percentagem}%` }}
-                    />
+                  <div style={{ height: 4, background: 'var(--bg)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', borderRadius: 2,
+                      width: `${pct}%`,
+                      background: idx === 0 ? 'var(--lime)' : 'var(--surface-2)',
+                      border: idx === 0 ? 'none' : '1px solid var(--border-hi)',
+                      transition: 'width 0.6s ease',
+                    }} />
                   </div>
                 </div>
               </div>
@@ -64,42 +78,43 @@ export default function VitoriasJogadores({ vitorias }: Props) {
         </div>
       </div>
 
-      {/* Quadro de vitórias por categoria */}
+      {/* Por categoria */}
       {categoriasComVitorias.length > 0 && (
-        <div className="card">
-          <h2 className="text-lg font-semibold text-zinc-100 mb-4">
-            🏅 Vitórias por categoria
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <div className="card-flush animate-fade-up delay-1">
+          <div style={{ padding: '1rem 1.25rem 0.85rem', borderBottom: '1px solid var(--border)' }}>
+            <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.15rem' }}>
+              🏅 Detalhe
+            </p>
+            <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Por Categoria</h2>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
               <thead>
-                <tr className="text-left text-xs text-zinc-500 border-b border-zinc-800">
-                  <th className="py-2 px-2">Jogador</th>
+                <tr style={{ background: 'var(--surface-2)' }}>
+                  <th style={{ padding: '0.6rem 1.25rem', textAlign: 'left', fontSize: '0.68rem', color: 'var(--text-sub)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Jogador</th>
                   {categoriasComVitorias.map(c => (
-                    <th key={c.tipo} className="py-2 px-2 text-center">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span>{c.emoji}</span>
-                        <span className="font-normal">{c.label}</span>
-                      </div>
+                    <th key={c.tipo} style={{ padding: '0.6rem 0.75rem', textAlign: 'center', fontSize: '0.68rem', color: 'var(--text-sub)', fontWeight: 600, letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                      {c.emoji} {c.label}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {vitorias.map(v => (
-                  <tr key={v.perfil.id} className="border-b border-zinc-900">
-                    <td className="py-2 px-2 text-zinc-100 font-medium">
+                {vitorias.map((v, idx) => (
+                  <tr key={v.perfil.id} className="table-row-alt" style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ padding: '0.7rem 1.25rem', color: idx === 0 ? 'var(--lime)' : 'var(--text)', fontWeight: 500 }}>
                       {v.perfil.username}
                     </td>
                     {categoriasComVitorias.map(c => {
                       const n = v.porCategoria[c.tipo]
                       return (
-                        <td
-                          key={c.tipo}
-                          className="py-2 px-2 text-center"
-                        >
-                          <span className={n > 0 ? 'text-amber-400 font-bold' : 'text-zinc-600'}>
-                            {n}
+                        <td key={c.tipo} style={{ padding: '0.7rem 0.75rem', textAlign: 'center' }}>
+                          <span style={{
+                            fontFamily: 'Barlow Condensed, sans-serif',
+                            fontSize: '1rem', fontWeight: 800,
+                            color: n > 0 ? 'var(--lime)' : 'var(--text-sub)',
+                          }}>
+                            {n > 0 ? n : '—'}
                           </span>
                         </td>
                       )
