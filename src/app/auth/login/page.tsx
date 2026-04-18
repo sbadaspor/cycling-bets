@@ -15,12 +15,9 @@ export default function LoginPage() {
   const handleLogin = async () => {
     setErro(null)
     if (!email || !password) return setErro('Preenche email e palavra-passe.')
-
     setLoading(true)
     const supabase = createClient()
-
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-
     if (error) {
       setErro('Credenciais inválidas. Verifica o email e a palavra-passe.')
     } else {
@@ -31,23 +28,52 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <span className="text-4xl">🚴</span>
-          <h1 className="text-2xl font-bold text-zinc-100 mt-2">VeloApostas</h1>
-          <p className="text-zinc-400 mt-1 text-sm">Entra para gerir as tuas apostas</p>
+    <div style={{
+      minHeight: '75vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '1rem',
+    }}>
+      <div style={{ width: '100%', maxWidth: 380 }} className="animate-fade-up">
+
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '1rem',
+            background: 'rgba(200,244,0,0.12)', border: '1.5px solid rgba(200,244,0,0.25)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 1rem',
+            fontSize: '2rem',
+          }}>
+            🚴
+          </div>
+          <h1 style={{
+            fontFamily: 'Barlow Condensed, sans-serif',
+            fontSize: '2rem', fontWeight: 800, textTransform: 'uppercase',
+            letterSpacing: '0.06em', color: 'var(--text)', marginBottom: '0.35rem',
+          }}>
+            Velo<span style={{ color: 'var(--lime)' }}>Apostas</span>
+          </h1>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-dim)' }}>
+            Entra para gerir as tuas apostas
+          </p>
         </div>
 
-        <div className="card space-y-4">
+        {/* Form card */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+
           {erro && (
-            <div className="bg-red-900/30 border border-red-800 rounded-lg px-4 py-3 text-red-400 text-sm">
+            <div style={{
+              background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)',
+              borderRadius: '0.75rem', padding: '0.75rem 1rem',
+              fontSize: '0.85rem', color: 'var(--red)',
+            }}>
               ⚠️ {erro}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Email</label>
+            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-dim)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Email
+            </label>
             <input
               type="email"
               className="input-field"
@@ -59,7 +85,9 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Palavra-passe</label>
+            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-dim)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Palavra-passe
+            </label>
             <input
               type="password"
               className="input-field"
@@ -73,14 +101,15 @@ export default function LoginPage() {
           <button
             onClick={handleLogin}
             disabled={loading}
-            className="btn-primary w-full py-2.5"
+            className="btn-primary"
+            style={{ width: '100%', marginTop: '0.25rem', padding: '0.8rem', fontSize: '1rem' }}
           >
-            {loading ? '⏳ A entrar...' : 'Entrar'}
+            {loading ? '⏳ A entrar...' : 'Entrar →'}
           </button>
 
-          <p className="text-center text-zinc-500 text-sm">
+          <p style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
             Não tens conta?{' '}
-            <Link href="/auth/register" className="text-amber-400 hover:text-amber-300">
+            <Link href="/auth/register" style={{ color: 'var(--lime)', fontWeight: 600, textDecoration: 'none' }}>
               Registar
             </Link>
           </p>
