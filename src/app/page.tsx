@@ -49,16 +49,30 @@ export default async function HomePage() {
   const vitorias = await getVitoriasAgregadas()
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-zinc-100">🚴 VeloApostas</h1>
-        <p className="text-zinc-400 mt-1">
-          Sistema de apostas de ciclismo entre amigos
+    <div>
+      {/* ── Hero header ───────────────────────── */}
+      <div className="animate-fade-up" style={{ marginBottom: '1.5rem' }}>
+        <p style={{ fontSize: '0.7rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.3rem' }}>
+          ⚡ Ciclismo entre amigos
+        </p>
+        <h1 style={{
+          fontFamily: 'Barlow Condensed, sans-serif',
+          fontSize: 'clamp(2rem, 6vw, 2.75rem)', fontWeight: 900,
+          textTransform: 'uppercase', letterSpacing: '0.03em',
+          lineHeight: 1, marginBottom: '0.4rem',
+        }}>
+          Velo<span style={{ color: 'var(--lime)' }}>Apostas</span>
+        </h1>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-dim)' }}>
+          Previsões Top-20 · Classificações especiais
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+      {/* ── Main layout ───────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: '1.25rem' }}>
+
+        {/* Left: live classifications + victories */}
+        <div className="lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {dadosADecorrer.length > 0 ? (
             dadosADecorrer.map(({ prova, apostas, ultimaEtapa }) => (
               <ClassificacaoProvaTable
@@ -73,21 +87,23 @@ export default async function HomePage() {
               prova={dadosUltimaFinalizada.prova}
               apostas={dadosUltimaFinalizada.apostas}
               ultimaEtapa={dadosUltimaFinalizada.ultimaEtapa}
-              titulo={`🏆 Classificação da última prova decorrida — ${dadosUltimaFinalizada.prova.nome}`}
+              titulo={`Última prova — ${dadosUltimaFinalizada.prova.nome}`}
             />
           ) : (
-            <div className="card text-center py-12 text-zinc-500">
-              <p>Ainda não há provas com classificação para mostrar.</p>
+            <div className="card" style={{ textAlign: 'center', padding: '3rem 1.25rem', color: 'var(--text-dim)' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🚴</div>
+              <p style={{ fontSize: '0.9rem' }}>Ainda não há provas com classificação para mostrar.</p>
             </div>
           )}
 
           <VitoriasJogadores vitorias={vitorias} />
         </div>
 
+        {/* Right: upcoming races */}
         <div>
-          <h2 className="text-xl font-semibold text-zinc-100 mb-4">
-            Próximas provas
-          </h2>
+          <div style={{ marginBottom: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 className="section-title" style={{ fontSize: '1.15rem' }}>Próximas Provas</h2>
+          </div>
           <ProvasList provas={provas} userId={user?.id} />
         </div>
       </div>
