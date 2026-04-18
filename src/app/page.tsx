@@ -5,11 +5,21 @@ import {
   getUltimaEtapa,
   getUltimaProvaFinalizada,
   getVitoriasAgregadas,
+  getLeaderboardProva,
 } from '@/lib/queries'
 import { categorizarProva } from '@/lib/provaStatus'
 import { ProvasList } from '@/components/dashboard/ProvasList'
 import ClassificacaoProvaTable from '@/components/dashboard/ClassificacaoProvaTable'
 import VitoriasJogadores from '@/components/dashboard/VitoriasJogadores'
+import type { VitoriaHistorica } from '@/types'
+
+function tipoGrandeVolta(nome: string): 'giro' | 'tour' | 'vuelta' | null {
+  const n = nome.toLowerCase()
+  if (n.includes('giro'))   return 'giro'
+  if (n.includes('tour'))   return 'tour'
+  if (n.includes('vuelta')) return 'vuelta'
+  return null
+}
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -48,6 +58,49 @@ export default async function HomePage() {
 
   const vitorias = await getVitoriasAgregadas()
 
+  // ── Grandes Voltas breakdown ──────────────────────────
+  // 1. Vitórias históricas com nome da prova
+  const { data: historicasRaw } = await supabase
+    .from('vitorias_historicas')
+    .select('user_id, nome_prova')
+
+  const historicas = (historicasRaw ?? []) as { user_id: string; nome_prova: string }[]
+
+  // 2. Provas da app finalizadas → quem ganhou
+  const { data: provasFinalizadas } = await supabase
+    .from('provas')
+    .select('id, nome')
+    .eq('status', 'finalizada')
+
+  // Inicializar mapa por userId
+  const gvMap = new Map<string, { giro: number; tour: number; vuelta: number }>()
+
+  const ensureEntry = (uid: string) => {
+    if (!gvMap.has(uid)) gvMap.set(uid, { giro: 0, tour: 0, vuelta: 0 })
+    return gvMap.get(uid)!
+  }
+
+  // Contar históricas
+  for (const h of historicas) {
+    const tipo = tipoGrandeVolta(h.nome_prova)
+    if (!tipo) continue
+    const entry = ensureEntry(h.user_id)
+    entry[tipo]++
+  }
+
+  // Contar app
+  for (const prova of (provasFinalizadas ?? [])) {
+    const tipo = tipoGrandeVolta(prova.nome)
+    if (!tipo) continue
+    const lb = await getLeaderboardProva(prova.id)
+    if (lb.length > 0 && lb[0].perfil?.id) {
+      const entry = ensureEntry(lb[0].perfil.id)
+      entry[tipo]++
+    }
+  }
+
+  const grandesVoltas = Array.from(gvMap.entries()).map(([userId, v]) => ({ userId, ...v }))
+
   return (
     <div>
       {/* ── Hero header ───────────────────────── */}
@@ -71,7 +124,6 @@ export default async function HomePage() {
       {/* ── Main layout ───────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: '1.25rem' }}>
 
-        {/* Left: live classifications + victories */}
         <div className="lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {dadosADecorrer.length > 0 ? (
             dadosADecorrer.map(({ prova, apostas, ultimaEtapa }) => (
@@ -96,13 +148,14 @@ export default async function HomePage() {
             </div>
           )}
 
-          <VitoriasJogadores vitorias={vitorias} />
+          <VitoriasJogadores vitorias={vitorias} grandesVoltas={grandesVoltas} />
         </div>
 
-        {/* Right: upcoming races */}
         <div>
           <div style={{ marginBottom: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 className="section-title" style={{ fontSize: '1.15rem' }}>Próximas Provas</h2>
+            <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.15rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Próximas Provas
+            </h2>
           </div>
           <ProvasList provas={provas} userId={user?.id} />
         </div>
