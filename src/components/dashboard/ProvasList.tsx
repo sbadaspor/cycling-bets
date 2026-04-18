@@ -1,3 +1,4 @@
+import React from 'react'
 import Link from 'next/link'
 import type { Prova } from '@/types'
 import { categorizarProva, compararProvas } from '@/lib/provaStatus'
@@ -67,7 +68,10 @@ export function ProvasList({ provas, userId }: Props) {
               </p>
 
               {prova.descricao && (
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.35rem', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
+                <p style={{
+                  fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.35rem',
+                  overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
+                } as React.CSSProperties}>
                   {prova.descricao}
                 </p>
               )}
