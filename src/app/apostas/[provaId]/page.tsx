@@ -15,45 +15,33 @@ export default async function ApostaPage({ params }: Props) {
   if (!user) redirect('/auth/login')
 
   let prova
-  try {
-    prova = await getProva(provaId)
-  } catch {
-    redirect('/')
-  }
-
-  if (prova.status !== 'aberta') {
-    redirect(`/provas/${provaId}`)
-  }
+  try { prova = await getProva(provaId) } catch { redirect('/') }
+  if (prova.status !== 'aberta') redirect(`/provas/${provaId}`)
 
   const [minhaAposta, ciclistas] = await Promise.all([
     getMinhaAposta(provaId, user.id),
     getCiclistas(provaId),
   ])
 
-  // Bloqueio: se não houver startlist, não é possível apostar
   if (ciclistas.length === 0) {
     return (
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-6">
-          <div className="flex items-center gap-2 text-zinc-500 text-sm mb-2">
-            <span>🏆 Apostas</span>
-            <span>›</span>
-            <span>{prova.nome}</span>
-          </div>
-          <h1 className="text-2xl font-bold text-zinc-100">{prova.nome}</h1>
+      <div className="max-w-2xl mx-auto">
+        <div className="animate-fade-up" style={{ marginBottom: '1.5rem' }}>
+          <Link href="/apostas" style={{ fontSize: '0.78rem', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.75rem', textDecoration: 'none' }}>
+            ← Apostas
+          </Link>
+          <h1 className="section-title" style={{ fontSize: '1.75rem' }}>{prova.nome}</h1>
         </div>
-
-        <div className="card text-center py-12">
-          <div className="text-5xl mb-4">📋</div>
-          <h2 className="text-xl font-bold text-zinc-100">Startlist em breve</h2>
-          <p className="text-zinc-400 mt-2 max-w-md mx-auto">
-            A lista de ciclistas desta prova ainda não foi carregada. Volta a tentar mais tarde — só poderás apostar depois da startlist estar disponível.
+        <div className="card animate-fade-up delay-1" style={{ textAlign: 'center', padding: '3rem 1.25rem' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+          <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.5rem', fontWeight: 800, color: 'var(--text)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+            Startlist em breve
+          </h2>
+          <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem', maxWidth: 340, margin: '0 auto 1.5rem' }}>
+            A lista de ciclistas ainda não foi carregada. Volta quando a startlist estiver disponível.
           </p>
-          <Link
-            href="/"
-            className="btn-primary inline-block mt-6"
-          >
-            ← Voltar ao dashboard
+          <Link href="/" className="btn-primary" style={{ display: 'inline-flex' }}>
+            ← Dashboard
           </Link>
         </div>
       </div>
@@ -61,35 +49,25 @@ export default async function ApostaPage({ params }: Props) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="mb-6">
-        <div className="flex items-center gap-2 text-zinc-500 text-sm mb-2">
-          <span>🏆 Apostas</span>
-          <span>›</span>
-          <span>{prova.nome}</span>
-        </div>
-        <h1 className="text-2xl font-bold text-zinc-100">{prova.nome}</h1>
-        <p className="text-zinc-400 mt-1">
-          {minhaAposta ? 'Atualizar a tua aposta' : 'Submete a tua previsão'}
+    <div className="max-w-2xl mx-auto">
+      <div className="animate-fade-up" style={{ marginBottom: '1.5rem' }}>
+        <Link href="/apostas" style={{ fontSize: '0.78rem', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.75rem', textDecoration: 'none' }}>
+          ← Apostas
+        </Link>
+        <h1 className="section-title" style={{ fontSize: '1.75rem', marginBottom: '0.4rem' }}>{prova.nome}</h1>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '0.75rem' }}>
+          {minhaAposta ? 'Atualiza a tua previsão' : 'Submete a tua previsão'}
         </p>
-        <div className="flex items-center gap-2 mt-2">
-          <span className="badge-aberta">🟢 Aberta até resultados</span>
-          {minhaAposta && (
-            <span className="badge bg-blue-900/50 text-blue-400 border border-blue-800">
-              Aposta existente
-            </span>
-          )}
-          <span className="badge bg-zinc-800 text-zinc-400 border border-zinc-700">
-            {ciclistas.length} ciclistas na startlist
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <span className="badge badge-aberta">● Aberta</span>
+          {minhaAposta && <span className="badge" style={{ background: 'rgba(68,136,255,0.12)', color: 'var(--blue)', border: '1px solid rgba(68,136,255,0.25)' }}>Aposta existente</span>}
+          <span className="badge" style={{ background: 'var(--surface-2)', color: 'var(--text-dim)', border: '1px solid var(--border-hi)' }}>
+            {ciclistas.length} ciclistas
           </span>
         </div>
       </div>
 
-      <ApostaForm
-        prova={prova}
-        apostaExistente={minhaAposta}
-        ciclistas={ciclistas}
-      />
+      <ApostaForm prova={prova} apostaExistente={minhaAposta} ciclistas={ciclistas} />
     </div>
   )
 }
