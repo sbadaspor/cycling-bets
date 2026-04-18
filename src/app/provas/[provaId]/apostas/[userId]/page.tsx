@@ -16,17 +16,10 @@ export default async function ApostaDetalhePage({ params }: Props) {
   if (!user) redirect('/auth/login')
 
   let prova
-  try {
-    prova = await getProva(provaId)
-  } catch {
-    redirect('/apostas')
-  }
+  try { prova = await getProva(provaId) } catch { redirect('/apostas') }
 
   const cat = categorizarProva(prova)
-
-  if (userId !== user.id && cat.estado === 'futura') {
-    redirect('/apostas')
-  }
+  if (userId !== user.id && cat.estado === 'futura') redirect('/apostas')
 
   const [aposta, todasApostas, ultimaEtapa] = await Promise.all([
     getApostaPorUser(provaId, userId),
@@ -36,16 +29,12 @@ export default async function ApostaDetalhePage({ params }: Props) {
 
   if (!aposta) {
     return (
-      <div className="max-w-3xl mx-auto">
-        <Link href="/apostas" className="text-sm text-zinc-400 hover:text-zinc-100">
-          ← Voltar
-        </Link>
-        <div className="card text-center py-12 mt-4">
-          <div className="text-5xl mb-4">🤷</div>
-          <h2 className="text-xl font-bold text-zinc-100">Sem aposta nesta prova</h2>
-          <p className="text-zinc-400 mt-2">
-            Este utilizador não submeteu aposta para {prova.nome}.
-          </p>
+      <div className="max-w-2xl mx-auto">
+        <Link href="/apostas" style={{ fontSize: '0.78rem', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.75rem', textDecoration: 'none' }}>← Voltar</Link>
+        <div className="card animate-fade-up" style={{ textAlign: 'center', padding: '3rem 1.25rem', marginTop: '1rem' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>🤷</div>
+          <h2 className="section-title" style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Sem aposta</h2>
+          <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>Este utilizador não submeteu aposta para {prova.nome}.</p>
         </div>
       </div>
     )
@@ -53,83 +42,69 @@ export default async function ApostaDetalhePage({ params }: Props) {
 
   const ehProvaUser = userId === user.id
   const podeEditar = ehProvaUser && cat.estado === 'futura'
-
   const apostasOrdenadas = [...todasApostas].sort((a, b) => b.pontos_total - a.pontos_total)
   const ranking = apostasOrdenadas.findIndex(a => a.id === aposta.id) + 1
+  const outrasApostas = cat.estado !== 'futura' ? todasApostas.filter(a => a.user_id !== userId) : []
+  const medals = ['🥇', '🥈', '🥉']
 
-  const outrasApostas = cat.estado !== 'futura'
-    ? todasApostas.filter(a => a.user_id !== userId)
-    : []
+  const estadoBadge = cat.estado === 'a_decorrer'
+    ? { label: '● Ao vivo', cls: 'badge-aberta' }
+    : cat.estado === 'futura'
+    ? { label: '⏳ Futura', cls: 'badge-fechada' }
+    : { label: '✓ Finalizada', cls: 'badge-finalizada' }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <Link href="/apostas" className="text-sm text-zinc-400 hover:text-zinc-100">
-          ← Voltar às minhas apostas
+    <div className="max-w-2xl mx-auto" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+      <div className="animate-fade-up">
+        <Link href="/apostas" style={{ fontSize: '0.78rem', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.75rem', textDecoration: 'none' }}>
+          ← Apostas
         </Link>
-        <div className="mt-3 flex items-center gap-3 flex-wrap">
-          <h1 className="text-2xl font-bold text-zinc-100">{prova.nome}</h1>
-          {cat.estado === 'a_decorrer' && (
-            <span className="badge bg-amber-900/50 text-amber-400 border border-amber-800">🟢 A decorrer</span>
-          )}
-          {cat.estado === 'futura' && (
-            <span className="badge bg-blue-900/50 text-blue-400 border border-blue-800">⏳ Futura</span>
-          )}
-          {cat.estado === 'finalizada' && (
-            <span className="badge bg-green-900/50 text-green-400 border border-green-800">✅ Finalizada</span>
-          )}
+        <h1 className="section-title" style={{ fontSize: '1.75rem', marginBottom: '0.4rem' }}>{prova.nome}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap', marginBottom: '0.625rem' }}>
+          <span className={`badge ${estadoBadge.cls}`}>{estadoBadge.label}</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+            {aposta.perfil?.username ?? 'utilizador'}
+            {ranking > 0 && ultimaEtapa && ` · #${ranking} de ${todasApostas.length}`}
+          </span>
         </div>
-        <p className="text-sm text-zinc-500 mt-1">
-          Aposta de <strong className="text-zinc-300">{aposta.perfil?.username ?? 'utilizador'}</strong>
-          {ranking > 0 && ultimaEtapa && (
-            <> · Posição #{ranking} entre {todasApostas.length} apostas</>
-          )}
-        </p>
         {podeEditar && (
-          <Link
-            href={`/apostas/${provaId}`}
-            className="btn-primary inline-block mt-3"
-          >
-            ✏️ Editar a minha aposta
+          <Link href={`/apostas/${provaId}`} className="btn-primary" style={{ display: 'inline-flex', fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
+            ✏️ Editar aposta
           </Link>
         )}
       </div>
 
-      <ApostaDetalhe
-        aposta={aposta}
-        ultimaEtapa={ultimaEtapa}
-        ehProvaUser={ehProvaUser}
-      />
+      <ApostaDetalhe aposta={aposta} ultimaEtapa={ultimaEtapa} ehProvaUser={ehProvaUser} />
 
       {outrasApostas.length > 0 && (
-        <div className="card">
-          <h2 className="text-lg font-semibold text-zinc-100 mb-4">
-            👥 Outras apostas nesta prova
-          </h2>
-          <div className="space-y-2">
-            {outrasApostas
-              .sort((a, b) => b.pontos_total - a.pontos_total)
-              .map((a) => {
-                const rank = apostasOrdenadas.findIndex(x => x.id === a.id) + 1
-                return (
-                  <Link
-                    key={a.id}
-                    href={`/provas/${provaId}/apostas/${a.user_id}`}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 hover:bg-zinc-900/80 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-zinc-800 text-xs font-bold text-zinc-400">
-                        #{rank}
-                      </span>
-                      <span className="text-zinc-100">{a.perfil?.username ?? 'utilizador'}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-amber-400 font-bold">{a.pontos_total} pts</span>
-                      <span className="text-zinc-500 text-sm">→</span>
-                    </div>
-                  </Link>
-                )
-              })}
+        <div className="card-flush animate-fade-up">
+          <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)' }}>
+            <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>👥 Comparar</p>
+            <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Outras Apostas</h2>
+          </div>
+          <div>
+            {outrasApostas.sort((a, b) => b.pontos_total - a.pontos_total).map((a, i) => {
+              const rank = apostasOrdenadas.findIndex(x => x.id === a.id) + 1
+              return (
+                <Link key={a.id} href={`/provas/${provaId}/apostas/${a.user_id}`} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.75rem 1.25rem',
+                  borderBottom: i < outrasApostas.length - 1 ? '1px solid var(--border)' : 'none',
+                  textDecoration: 'none', transition: 'background 0.12s',
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}
+                >
+                  <span style={{ fontSize: rank <= 3 ? '1rem' : '0.78rem', fontWeight: 800, color: rank <= 3 ? 'var(--lime)' : 'var(--text-dim)', fontFamily: 'Barlow Condensed, sans-serif', width: 28, textAlign: 'center', flexShrink: 0 }}>
+                    {medals[rank - 1] ?? `#${rank}`}
+                  </span>
+                  <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>{a.perfil?.username}</span>
+                  <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.15rem', fontWeight: 800, color: rank <= 3 ? 'var(--lime)' : 'var(--text-dim)' }}>
+                    {a.pontos_total} <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)' }}>pts</span>
+                  </span>
+                </Link>
+              )
+            })}
           </div>
         </div>
       )}
