@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { CategoriaProvaTipo, VitoriasJogador } from '@/types'
 
 interface Props {
@@ -28,7 +29,7 @@ export default function VitoriasJogadores({ vitorias }: Props) {
           <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.15rem' }}>
             🏆 Vitórias
           </p>
-          <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Hall of Fame</h2>
+          <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.2rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Hall of Fame</h2>
         </div>
         <div style={{ padding: '0.75rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
           {vitorias.map((v, idx) => {
@@ -50,9 +51,21 @@ export default function VitoriasJogadores({ vitorias }: Props) {
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: idx === 0 ? 'var(--lime)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {/* Clickable name */}
+                    <Link
+                      href={`/perfil/${v.perfil.id}`}
+                      style={{
+                        fontSize: '0.9rem', fontWeight: 600,
+                        color: idx === 0 ? 'var(--lime)' : 'var(--text)',
+                        textDecoration: 'none',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        transition: 'opacity 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                      onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                    >
                       {v.perfil.username}
-                    </span>
+                    </Link>
                     <span style={{
                       fontFamily: 'Barlow Condensed, sans-serif',
                       fontSize: '1rem', fontWeight: 800,
@@ -85,7 +98,7 @@ export default function VitoriasJogadores({ vitorias }: Props) {
             <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.15rem' }}>
               🏅 Detalhe
             </p>
-            <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Por Categoria</h2>
+            <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.2rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Por Categoria</h2>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
@@ -102,8 +115,19 @@ export default function VitoriasJogadores({ vitorias }: Props) {
               <tbody>
                 {vitorias.map((v, idx) => (
                   <tr key={v.perfil.id} className="table-row-alt" style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ padding: '0.7rem 1.25rem', color: idx === 0 ? 'var(--lime)' : 'var(--text)', fontWeight: 500 }}>
-                      {v.perfil.username}
+                    <td style={{ padding: '0.7rem 1.25rem' }}>
+                      <Link
+                        href={`/perfil/${v.perfil.id}`}
+                        style={{
+                          color: idx === 0 ? 'var(--lime)' : 'var(--text)',
+                          fontWeight: 500, textDecoration: 'none',
+                          transition: 'opacity 0.15s',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                        onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                      >
+                        {v.perfil.username}
+                      </Link>
                     </td>
                     {categoriasComVitorias.map(c => {
                       const n = v.porCategoria[c.tipo]
