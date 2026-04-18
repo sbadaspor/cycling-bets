@@ -16,30 +16,16 @@ export default function RegisterPage() {
 
   const handleRegister = async () => {
     setErro(null)
-    if (!username.trim() || !email || !password) {
-      return setErro('Preenche todos os campos.')
-    }
-    if (password.length < 6) {
-      return setErro('A palavra-passe deve ter pelo menos 6 caracteres.')
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      return setErro('O username só pode conter letras, números e underscore.')
-    }
-
+    if (!username.trim() || !email || !password) return setErro('Preenche todos os campos.')
+    if (password.length < 6) return setErro('A palavra-passe deve ter pelo menos 6 caracteres.')
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) return setErro('O username só pode conter letras, números e underscore.')
     setLoading(true)
     const supabase = createClient()
-
     const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { username: username.trim() },
-      },
+      email, password,
+      options: { data: { username: username.trim() } },
     })
-
-    if (error) {
-      setErro(error.message)
-    } else {
+    if (error) { setErro(error.message) } else {
       setSucesso(true)
       setTimeout(() => router.push('/auth/login'), 3000)
     }
@@ -48,11 +34,11 @@ export default function RegisterPage() {
 
   if (sucesso) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center">
-        <div className="card text-center max-w-sm w-full">
-          <div className="text-4xl mb-3">✉️</div>
-          <h2 className="text-xl font-bold text-zinc-100">Conta criada!</h2>
-          <p className="text-zinc-400 mt-2 text-sm">
+      <div style={{ minHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div className="card animate-fade-up" style={{ textAlign: 'center', maxWidth: 360, width: '100%' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>✉️</div>
+          <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 800, color: 'var(--lime)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Conta criada!</h2>
+          <p style={{ color: 'var(--text-dim)', marginTop: '0.5rem', fontSize: '0.875rem' }}>
             Verifica o teu email para confirmar a conta. Depois podes entrar.
           </p>
         </div>
@@ -61,67 +47,69 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <span className="text-4xl">🚴</span>
-          <h1 className="text-2xl font-bold text-zinc-100 mt-2">Criar Conta</h1>
-          <p className="text-zinc-400 mt-1 text-sm">Junta-te ao grupo de apostas</p>
+    <div style={{ minHeight: '75vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+      <div style={{ width: '100%', maxWidth: 380 }} className="animate-fade-up">
+
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '1rem',
+            background: 'rgba(200,244,0,0.12)', border: '1.5px solid rgba(200,244,0,0.25)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 1rem', fontSize: '2rem',
+          }}>🚴</div>
+          <h1 style={{
+            fontFamily: 'Barlow Condensed, sans-serif',
+            fontSize: '2rem', fontWeight: 800, textTransform: 'uppercase',
+            letterSpacing: '0.06em', color: 'var(--text)', marginBottom: '0.35rem',
+          }}>
+            Criar <span style={{ color: 'var(--lime)' }}>Conta</span>
+          </h1>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-dim)' }}>Junta-te ao grupo de apostas</p>
         </div>
 
-        <div className="card space-y-4">
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+
           {erro && (
-            <div className="bg-red-900/30 border border-red-800 rounded-lg px-4 py-3 text-red-400 text-sm">
-              ⚠️ {erro}
-            </div>
+            <div style={{
+              background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)',
+              borderRadius: '0.75rem', padding: '0.75rem 1rem',
+              fontSize: '0.85rem', color: 'var(--red)',
+            }}>⚠️ {erro}</div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Username</label>
-            <input
-              type="text"
-              className="input-field"
-              placeholder="o_teu_username"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-            />
-            <p className="text-zinc-600 text-xs mt-1">Letras, números e underscore</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Email</label>
-            <input
-              type="email"
-              className="input-field"
-              placeholder="o.teu@email.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-400 mb-1.5">Palavra-passe</label>
-            <input
-              type="password"
-              className="input-field"
-              placeholder="Mínimo 6 caracteres"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleRegister()}
-            />
-          </div>
+          {[
+            { label: 'Username', type: 'text', value: username, set: setUsername, placeholder: 'o_teu_username', hint: 'Letras, números e underscore' },
+            { label: 'Email', type: 'email', value: email, set: setEmail, placeholder: 'o.teu@email.com' },
+            { label: 'Palavra-passe', type: 'password', value: password, set: setPassword, placeholder: 'Mínimo 6 caracteres' },
+          ].map(({ label, type, value, set, placeholder, hint }) => (
+            <div key={label}>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-dim)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {label}
+              </label>
+              <input
+                type={type}
+                className="input-field"
+                placeholder={placeholder}
+                value={value}
+                onChange={e => set(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleRegister()}
+              />
+              {hint && <p style={{ fontSize: '0.72rem', color: 'var(--text-sub)', marginTop: '0.3rem' }}>{hint}</p>}
+            </div>
+          ))}
 
           <button
             onClick={handleRegister}
             disabled={loading}
-            className="btn-primary w-full py-2.5"
+            className="btn-primary"
+            style={{ width: '100%', marginTop: '0.25rem', padding: '0.8rem', fontSize: '1rem' }}
           >
-            {loading ? '⏳ A criar conta...' : 'Criar Conta'}
+            {loading ? '⏳ A criar conta...' : 'Criar Conta →'}
           </button>
 
-          <p className="text-center text-zinc-500 text-sm">
+          <p style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
             Já tens conta?{' '}
-            <Link href="/auth/login" className="text-amber-400 hover:text-amber-300">
+            <Link href="/auth/login" style={{ color: 'var(--lime)', fontWeight: 600, textDecoration: 'none' }}>
               Entrar
             </Link>
           </p>
