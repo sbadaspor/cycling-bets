@@ -27,7 +27,8 @@ export function AdminPanel({ provas }: Props) {
     return (
       <ProvaDetalhe
         prova={provaSelecionada}
-        onVoltar={() => setProvaSelecionadaId(null)}
+        onBack={() => setProvaSelecionadaId(null)}
+        onDeleted={() => setProvaSelecionadaId(null)}
       />
     )
   }
