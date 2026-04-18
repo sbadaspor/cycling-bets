@@ -6,86 +6,111 @@ interface Props {
   prova: Prova
   apostas: Aposta[]
   ultimaEtapa: EtapaResultado | null
-  titulo?: string  // override do título (ex.: "Classificação da última prova decorrida")
+  titulo?: string
 }
 
 export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, titulo }: Props) {
   const ordenadas = [...apostas].sort(compararDesempate)
-  const tituloFinal = titulo ?? `🏆 Classificação atual — ${prova.nome}`
+  const tituloFinal = titulo ?? `Classificação — ${prova.nome}`
+
+  const medals = ['🥇', '🥈', '🥉']
 
   return (
-    <div className="card">
-      <div className="flex items-baseline justify-between flex-wrap gap-2 mb-1">
-        <h2 className="text-lg font-semibold text-zinc-100">{tituloFinal}</h2>
-        {ultimaEtapa && (
-          <span className="text-xs text-zinc-500">
-            Atualizado após Etapa {ultimaEtapa.numero_etapa} · {ultimaEtapa.data_etapa}
-            {ultimaEtapa.is_final && ' · final'}
-          </span>
-        )}
+    <div className="card-flush animate-fade-up">
+      {/* Header */}
+      <div style={{
+        padding: '1.1rem 1.25rem 0.9rem',
+        borderBottom: '1px solid var(--border)',
+        background: 'linear-gradient(135deg, rgba(200,244,0,0.06) 0%, transparent 60%)',
+      }}>
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div>
+            <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>
+              🏆 Ao vivo
+            </p>
+            <h2 className="section-title" style={{ fontSize: '1.25rem', lineHeight: 1.1 }}>{tituloFinal}</h2>
+          </div>
+          {ultimaEtapa && (
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', background: 'var(--surface-2)', padding: '0.25rem 0.6rem', borderRadius: '999px', border: '1px solid var(--border-hi)', whiteSpace: 'nowrap', marginTop: '0.25rem' }}>
+              Etapa {ultimaEtapa.numero_etapa}{ultimaEtapa.is_final ? ' · Final' : ''}
+            </span>
+          )}
+        </div>
       </div>
 
+      {/* Body */}
       {ordenadas.length === 0 ? (
-        <p className="text-sm text-zinc-500 py-8 text-center">
-          Ainda não há apostas nesta prova.
-        </p>
+        <div style={{ padding: '2.5rem 1.25rem', textAlign: 'center', color: 'var(--text-dim)' }}>
+          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🚴</div>
+          <p style={{ fontSize: '0.9rem' }}>Ainda não há apostas nesta prova.</p>
+        </div>
       ) : !ultimaEtapa ? (
-        <p className="text-sm text-zinc-500 py-8 text-center">
-          ⏳ A aguardar primeira atualização. Os pontos serão calculados assim que o admin inserir a primeira etapa.
-        </p>
+        <div style={{ padding: '2.5rem 1.25rem', textAlign: 'center', color: 'var(--text-dim)' }}>
+          <div style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>⏳</div>
+          <p style={{ fontSize: '0.875rem' }}>A aguardar primeira etapa. Os pontos serão calculados em breve.</p>
+        </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-zinc-500 border-b border-zinc-800">
-                <th className="py-2 px-2 w-10">#</th>
-                <th className="py-2 px-2">Jogador</th>
-                <th className="py-2 px-2 text-right hidden sm:table-cell">Top-10</th>
-                <th className="py-2 px-2 text-right hidden sm:table-cell">Top-20</th>
-                <th className="py-2 px-2 text-right hidden sm:table-cell">🎽</th>
-                <th className="py-2 px-2 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ordenadas.map((a, idx) => {
-                const rank = idx + 1
-                const medalha = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
-                return (
-                  <tr
-                    key={a.id}
-                    className="border-b border-zinc-900 hover:bg-zinc-900/40 transition-colors"
-                  >
-                    <td className="py-2 px-2">
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-zinc-800 text-xs font-bold text-zinc-300">
-                        {medalha ?? rank}
-                      </span>
-                    </td>
-                    <td className="py-2 px-2">
-                      <Link
-                        href={`/provas/${prova.id}/apostas/${a.user_id}`}
-                        className="text-zinc-100 hover:text-amber-400 font-medium"
-                      >
-                        {a.perfil?.username ?? 'utilizador'}
-                      </Link>
-                    </td>
-                    <td className="py-2 px-2 text-right text-zinc-400 hidden sm:table-cell">
-                      {a.pontos_top10}
-                    </td>
-                    <td className="py-2 px-2 text-right text-zinc-400 hidden sm:table-cell">
-                      {a.pontos_top20}
-                    </td>
-                    <td className="py-2 px-2 text-right text-zinc-400 hidden sm:table-cell">
-                      {a.pontos_camisolas}
-                    </td>
-                    <td className="py-2 px-2 text-right">
-                      <span className="text-amber-400 font-bold">{a.pontos_total}</span>
-                      <span className="text-zinc-500 text-xs ml-1">pts</span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div>
+          {ordenadas.map((a, idx) => {
+            const rank = idx + 1
+            const isTop3 = rank <= 3
+            const pontos = a.pontos_total ?? 0
+
+            return (
+              <Link
+                key={a.id}
+                href={`/provas/${prova.id}/apostas/${a.user_id}`}
+                className="table-row-alt"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.875rem',
+                  padding: '0.85rem 1.25rem',
+                  borderBottom: '1px solid var(--border)',
+                  transition: 'background 0.12s',
+                  textDecoration: 'none',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                onMouseLeave={e => (e.currentTarget.style.background = '')}
+              >
+                {/* Rank */}
+                <div style={{
+                  width: 32, height: 32, borderRadius: '0.5rem', flexShrink: 0,
+                  background: isTop3 ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
+                  border: `1px solid ${isTop3 ? 'rgba(200,244,0,0.2)' : 'var(--border)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: isTop3 ? '1rem' : '0.75rem',
+                  fontWeight: 700, color: isTop3 ? 'var(--lime)' : 'var(--text-dim)',
+                  fontFamily: 'Barlow Condensed, sans-serif',
+                }}>
+                  {medals[idx] ?? rank}
+                </div>
+
+                {/* Name */}
+                <span style={{
+                  flex: 1, fontSize: '0.95rem', fontWeight: 500,
+                  color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {a.perfil?.username ?? 'utilizador'}
+                </span>
+
+                {/* Points breakdown — hidden on very small screens */}
+                <div className="hidden sm:flex items-center gap-3" style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>
+                  {a.pontos_top10 != null && <span>T10: {a.pontos_top10}</span>}
+                  {a.pontos_top20 != null && <span>T20: {a.pontos_top20}</span>}
+                  {a.pontos_camisolas != null && <span>🎽 {a.pontos_camisolas}</span>}
+                </div>
+
+                {/* Total */}
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <span style={{
+                    fontFamily: 'Barlow Condensed, sans-serif',
+                    fontSize: '1.25rem', fontWeight: 800,
+                    color: isTop3 ? 'var(--lime)' : 'var(--text)',
+                  }}>{pontos}</span>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginLeft: '2px' }}>pts</span>
+                </div>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>
