@@ -38,186 +38,171 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
     ? calcularCamisolas(camisolasAposta, camisolasReais)
     : []
 
-  // Mapa: ciclista -> posição real (top N + adicionais)
   const posReal = new Map<string, number>()
-  resultado.slice(0, numPos).forEach((c, i) => {
-    if (c?.trim()) posReal.set(c.trim().toLowerCase(), i + 1)
-  })
-  adicionais.forEach(a => {
-    if (a.nome?.trim()) posReal.set(a.nome.trim().toLowerCase(), a.posicao)
-  })
+  resultado.slice(0, numPos).forEach((c, i) => { if (c?.trim()) posReal.set(c.trim().toLowerCase(), i + 1) })
+  adicionais.forEach(a => { if (a.nome?.trim()) posReal.set(a.nome.trim().toLowerCase(), a.posicao) })
 
   function dadosLinha(apostado: string, posApostada: number) {
-    if (!ultimaEtapa || !apostado.trim()) {
-      return { pts: 0, posReal: null as number | null, classe: 'bg-zinc-900/50' }
-    }
+    if (!ultimaEtapa || !apostado.trim()) return { pts: 0, posReal: null as number | null, color: 'var(--surface-2)' }
     const pr = posReal.get(apostado.trim().toLowerCase()) ?? null
-    let pts = 0
-    let classe = 'bg-zinc-900/50'
-
+    let pts = 0; let color = 'var(--surface-2)'
     if (pr !== null) {
-      const apostadoNoAlto = posApostada <= topAlto
-      const realNoAlto = pr <= topAlto
-      const realNoBaixo = pr <= topBaixo
-
+      const apostadoNoAlto = posApostada <= topAlto; const realNoAlto = pr <= topAlto; const realNoBaixo = pr <= topBaixo
       if (apostadoNoAlto && realNoAlto) {
-        pts = 3
-        classe = pr === posApostada
-          ? 'bg-emerald-900/30 border-emerald-700/40'
-          : 'bg-green-900/20 border-green-800/40'
+        pts = 3; color = pr === posApostada ? 'rgba(68,204,136,0.15)' : 'rgba(68,204,136,0.08)'
       } else if (!apostadoNoAlto && realNoBaixo && pr > topAlto) {
-        pts = 2
-        classe = pr === posApostada
-          ? 'bg-emerald-900/30 border-emerald-700/40'
-          : 'bg-amber-900/20 border-amber-800/40'
+        pts = 2; color = pr === posApostada ? 'rgba(68,204,136,0.12)' : 'rgba(255,200,0,0.06)'
       } else if (!apostadoNoAlto && realNoAlto) {
-        pts = 1
-        classe = 'bg-amber-900/20 border-amber-800/40'
+        pts = 1; color = 'rgba(255,200,0,0.06)'
       }
     }
-
-    return { pts, posReal: pr, classe }
+    return { pts, posReal: pr, color }
   }
 
+  const statBoxStyle = (highlight = false) => ({
+    borderRadius: '0.875rem', padding: '1rem',
+    background: highlight ? 'rgba(200,244,0,0.08)' : 'var(--surface-2)',
+    border: `1px solid ${highlight ? 'rgba(200,244,0,0.25)' : 'var(--border)'}`,
+    textAlign: 'center' as const,
+  })
+
   return (
-    <div className="space-y-6">
-      {/* Resumo de pontos */}
-      <div className="card">
-        <h2 className="text-lg font-semibold text-zinc-100 mb-4">
-          {ehProvaUser ? '🎯 A tua pontuação' : `🎯 Pontuação de ${aposta.perfil?.username ?? 'utilizador'}`}
-        </h2>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
 
-        {!ultimaEtapa ? (
-          <div className="text-center py-6 text-zinc-500">
-            <p>⏳ A aguardar primeira atualização da prova.</p>
-            <p className="text-sm mt-1">Os pontos só são calculados depois do admin inserir a primeira etapa.</p>
-          </div>
-        ) : (
-          <>
-            <div className={`grid grid-cols-2 ${config.temCamisolas ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-3`}>
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
-                <div className="text-xs text-zinc-500 mb-1">Top 1-{topAlto}</div>
-                <div className="text-2xl font-bold text-amber-400">{calc!.pontos_top10}</div>
-                <div className="text-xs text-zinc-500 mt-1">3 pts/acerto</div>
-              </div>
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
-                <div className="text-xs text-zinc-500 mb-1">Top {topAlto + 1}-{topBaixo}</div>
-                <div className="text-2xl font-bold text-zinc-200">{calc!.pontos_top20}</div>
-                <div className="text-xs text-zinc-500 mt-1">2 pts/acerto + 1 bónus</div>
-              </div>
-              {config.temCamisolas && (
-                <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-center">
-                  <div className="text-xs text-zinc-500 mb-1">Camisolas</div>
-                  <div className="text-2xl font-bold text-zinc-200">{calc!.pontos_camisolas}</div>
-                  <div className="text-xs text-zinc-500 mt-1">1 pt/acerto</div>
+      {/* Score summary */}
+      <div className="card-flush animate-fade-up">
+        <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, rgba(200,244,0,0.05) 0%, transparent 60%)' }}>
+          <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>🎯 Pontuação</p>
+          <h2 className="section-title" style={{ fontSize: '1.2rem' }}>
+            {ehProvaUser ? 'A tua pontuação' : `Pontuação de ${aposta.perfil?.username ?? 'utilizador'}`}
+          </h2>
+        </div>
+
+        <div style={{ padding: '1rem 1.25rem' }}>
+          {!ultimaEtapa ? (
+            <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--text-dim)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+              <p style={{ fontSize: '0.875rem' }}>A aguardar primeira atualização da prova.</p>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-sub)', marginTop: '0.35rem' }}>Os pontos são calculados quando o admin inserir a primeira etapa.</p>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${config.temCamisolas ? 4 : 3}, 1fr)`, gap: '0.625rem', marginBottom: '0.875rem' }}>
+                <div style={statBoxStyle()}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Top 1-{topAlto}</div>
+                  <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 900, color: 'var(--lime)' }}>{calc!.pontos_top10}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginTop: '0.2rem' }}>3 pts/acerto</div>
                 </div>
-              )}
-              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-center">
-                <div className="text-xs text-amber-300 mb-1">Total</div>
-                <div className="text-3xl font-bold text-amber-400">{calc!.pontos_total}</div>
-                <div className="text-xs text-amber-300/70 mt-1">pontos</div>
+                <div style={statBoxStyle()}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Top {topAlto+1}-{topBaixo}</div>
+                  <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 900, color: 'var(--text)' }}>{calc!.pontos_top20}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginTop: '0.2rem' }}>2 pts + bónus</div>
+                </div>
+                {config.temCamisolas && (
+                  <div style={statBoxStyle()}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>🎽</div>
+                    <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 900, color: 'var(--text)' }}>{calc!.pontos_camisolas}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginTop: '0.2rem' }}>1 pt/acerto</div>
+                  </div>
+                )}
+                <div style={statBoxStyle(true)}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--lime)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total</div>
+                  <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '2.25rem', fontWeight: 900, color: 'var(--lime)' }}>{calc!.pontos_total}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--lime)', opacity: 0.6, marginTop: '0.2rem' }}>pontos</div>
+                </div>
               </div>
-            </div>
-
-            <div className="text-xs text-zinc-500 mt-4 text-center">
-              Pontuação calculada com base na <strong>Etapa {ultimaEtapa.numero_etapa}</strong> ({ultimaEtapa.data_etapa}){ultimaEtapa.is_final && ' — etapa final'}
-            </div>
-          </>
-        )}
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-sub)', textAlign: 'center' }}>
+                Calculado após Etapa {ultimaEtapa.numero_etapa} ({ultimaEtapa.data_etapa}){ultimaEtapa.is_final ? ' · Final' : ''}
+              </p>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Top apostado */}
-      <div className="card">
-        <h2 className="text-lg font-semibold text-zinc-100 mb-4">A minha aposta</h2>
+      {/* Picks */}
+      <div className="card-flush animate-fade-up delay-1">
+        <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)' }}>
+          <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>📋 Previsão</p>
+          <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Top {numPos} apostado</h2>
+        </div>
+        <div>
+          {Array.from({ length: numPos }).map((_, idx) => {
+            const apostado = aposta.apostas_top20[idx] ?? ''
+            const posApostada = idx + 1
+            const { pts, posReal: pr, color } = dadosLinha(apostado, posApostada)
+            const isAlto = posApostada <= topAlto
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-zinc-500 border-b border-zinc-800">
-                <th className="py-2 px-2 w-12">Pos</th>
-                <th className="py-2 px-2">Apostado</th>
-                <th className="py-2 px-2 text-right w-20">Pontos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: numPos }).map((_, idx) => {
-                const apostado = aposta.apostas_top20[idx] ?? ''
-                const posApostada = idx + 1
-                const { pts, posReal: pr, classe } = dadosLinha(apostado, posApostada)
+            return (
+              <div key={idx} style={{
+                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                padding: '0.625rem 1.25rem',
+                borderBottom: idx < numPos - 1 ? '1px solid var(--border)' : 'none',
+                background: ultimaEtapa ? color : undefined,
+              }}>
+                {/* Pos */}
+                <div style={{
+                  width: 28, height: 28, flexShrink: 0, borderRadius: '0.4rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.72rem', fontWeight: 800,
+                  fontFamily: 'Barlow Condensed, sans-serif',
+                  background: isAlto ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
+                  border: `1px solid ${isAlto ? 'rgba(200,244,0,0.2)' : 'var(--border)'}`,
+                  color: isAlto ? 'var(--lime)' : 'var(--text-dim)',
+                }}>{posApostada}</div>
 
-                return (
-                  <tr
-                    key={idx}
-                    className={`border-b border-zinc-900 ${classe}`}
-                  >
-                    <td className="py-2 px-2">
-                      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-xs font-bold ${
-                        posApostada <= topAlto
-                          ? 'bg-amber-500/20 text-amber-400'
-                          : 'bg-zinc-800 text-zinc-400'
-                      }`}>
-                        {posApostada}
+                {/* Name + result badge */}
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.88rem', color: apostado ? 'var(--text)' : 'var(--text-sub)' }}>
+                    {apostado || '—'}
+                  </span>
+                  {ultimaEtapa && apostado && (
+                    pr !== null ? (
+                      <span style={{
+                        fontSize: '0.7rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: '999px',
+                        background: pr === posApostada ? 'rgba(68,204,136,0.2)' : pr <= topAlto ? 'rgba(68,204,136,0.1)' : pr <= topBaixo ? 'rgba(255,200,0,0.1)' : 'var(--surface-2)',
+                        color: pr === posApostada ? 'var(--green)' : pr <= topBaixo ? '#ffc800' : 'var(--text-dim)',
+                        border: `1px solid ${pr === posApostada ? 'rgba(68,204,136,0.3)' : 'transparent'}`,
+                      }}>
+                        {pr === posApostada ? `✓ ${pr}º` : `→ ${pr}º`}
                       </span>
-                    </td>
-                    <td className="py-2 px-2">
-                      {apostado ? (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-zinc-100">{apostado}</span>
-                          {ultimaEtapa && (
-                            pr !== null ? (
-                              <span className={`text-xs px-2 py-0.5 rounded ${
-                                pr === posApostada
-                                  ? 'bg-emerald-500/20 text-emerald-300'
-                                  : pr <= topAlto
-                                    ? 'bg-green-500/20 text-green-300'
-                                    : pr <= topBaixo
-                                      ? 'bg-amber-500/20 text-amber-300'
-                                      : 'bg-zinc-700 text-zinc-300'
-                              }`}>
-                                {pr === posApostada ? `✓ ${pr}º` : `→ ${pr}º`}
-                              </span>
-                            ) : (
-                              <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-500">
-                                fora
-                              </span>
-                            )
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-zinc-600">—</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-2 text-right">
-                      {ultimaEtapa ? (
-                        <span className={`font-bold ${pts > 0 ? 'text-amber-400' : 'text-zinc-600'}`}>
-                          {pts}
-                        </span>
-                      ) : (
-                        <span className="text-zinc-600">—</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                    ) : (
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-sub)', background: 'var(--surface-2)', padding: '0.1rem 0.45rem', borderRadius: '999px' }}>fora</span>
+                    )
+                  )}
+                </div>
+
+                {/* Points */}
+                <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 28 }}>
+                  {ultimaEtapa ? (
+                    <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1rem', fontWeight: 800, color: pts > 0 ? 'var(--lime)' : 'var(--text-sub)' }}>
+                      {pts > 0 ? `+${pts}` : '0'}
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--text-sub)', fontSize: '0.75rem' }}>—</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         {ultimaEtapa && (
-          <div className="mt-4 text-xs text-zinc-500 flex flex-wrap gap-x-4 gap-y-1">
-            <span>✓ posição exata</span>
-            <span>→ está no Top-{topBaixo}</span>
-            <span>→ XXº = posição real (fora do Top-{topBaixo})</span>
-            <span>fora = sem informação de posição</span>
+          <div style={{ padding: '0.625rem 1.25rem', background: 'var(--surface-2)', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-sub)' }}>✓ posição exata</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-sub)' }}>→ Nº está no ranking</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-sub)' }}>fora = não classificado</span>
           </div>
         )}
       </div>
 
-      {/* Camisolas (só para categorias que têm) */}
+      {/* Jerseys */}
       {config.temCamisolas && (
-        <div className="card">
-          <h2 className="text-lg font-semibold text-zinc-100 mb-4">🎽 Camisolas</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="card-flush animate-fade-up delay-2">
+          <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)' }}>
+            <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>🎽 Especiais</p>
+            <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Camisolas</h2>
+          </div>
+          <div style={{ padding: '1rem 1.25rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
             {[
               { tipo: 'sprint' as const, label: '🟢 Sprint', apostado: camisolasAposta.sprint, real: camisolasReais.sprint },
               { tipo: 'montanha' as const, label: '🔴 Montanha', apostado: camisolasAposta.montanha, real: camisolasReais.montanha },
@@ -226,24 +211,21 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
               const breakdown = camisolaBreakdown.find(b => b.tipo === c.tipo)
               const acertou = breakdown?.acertou ?? false
               return (
-                <div
-                  key={c.tipo}
-                  className={`rounded-lg border p-3 ${
-                    ultimaEtapa && acertou
-                      ? 'border-emerald-700/40 bg-emerald-900/20'
-                      : 'border-zinc-800 bg-zinc-900/50'
-                  }`}
-                >
-                  <div className="text-xs text-zinc-500 mb-1">{c.label}</div>
-                  <div className="text-sm text-zinc-100 font-medium">
-                    {c.apostado || <span className="text-zinc-600">— sem aposta —</span>}
+                <div key={c.tipo} style={{
+                  borderRadius: '0.875rem', padding: '0.875rem',
+                  background: ultimaEtapa && acertou ? 'rgba(68,204,136,0.1)' : 'var(--surface-2)',
+                  border: `1px solid ${ultimaEtapa && acertou ? 'rgba(68,204,136,0.3)' : 'var(--border)'}`,
+                }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{c.label}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: ultimaEtapa ? '0.5rem' : 0 }}>
+                    {c.apostado || <span style={{ color: 'var(--text-sub)' }}>sem aposta</span>}
                   </div>
                   {ultimaEtapa && (
-                    <div className="text-xs mt-2 pt-2 border-t border-zinc-800">
-                      <span className="text-zinc-500">Real: </span>
-                      <span className="text-zinc-300">{c.real || '—'}</span>
+                    <div style={{ paddingTop: '0.5rem', borderTop: '1px solid var(--border)', fontSize: '0.75rem' }}>
+                      <span style={{ color: 'var(--text-dim)' }}>Real: </span>
+                      <span style={{ color: 'var(--text)' }}>{c.real || '—'}</span>
                       {c.apostado && (
-                        <span className={`ml-2 font-bold ${acertou ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                        <span style={{ display: 'block', fontWeight: 800, color: acertou ? 'var(--green)' : 'var(--text-sub)', fontSize: '0.78rem', marginTop: '0.2rem' }}>
                           {acertou ? '✓ +1 pt' : '✗ 0 pts'}
                         </span>
                       )}
