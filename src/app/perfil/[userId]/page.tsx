@@ -8,15 +8,32 @@ interface Props {
   params: Promise<{ userId: string }>
 }
 
-const CATEGORIAS: { tipo: CategoriaProvaTipo; label: string; emoji: string }[] = [
-  { tipo: 'grande_volta',  label: 'Grande Volta',        emoji: '🏔️' },
-  { tipo: 'prova_semana',  label: 'Prova de uma semana', emoji: '📅' },
-  { tipo: 'monumento',     label: 'Monumento',           emoji: '🗿' },
-  { tipo: 'prova_dia',     label: 'Prova de um dia',     emoji: '⚡' },
-]
+// Detecta o tipo de prova (Giro / Tour / Vuelta) pelo nome
+function tipoGrandeVolta(nome: string): 'giro' | 'tour' | 'vuelta' | null {
+  const n = nome.toLowerCase()
+  if (n.includes('giro'))   return 'giro'
+  if (n.includes('tour'))   return 'tour'
+  if (n.includes('vuelta')) return 'vuelta'
+  return null
+}
+
+// Ordem de exibição: mais recente = Vuelta > Tour > Giro dentro do mesmo ano
+function ordemDentroAno(nome: string): number {
+  const tipo = tipoGrandeVolta(nome)
+  if (tipo === 'vuelta') return 3
+  if (tipo === 'tour')   return 2
+  if (tipo === 'giro')   return 1
+  return 0
+}
 
 function labelCategoria(tipo: CategoriaProvaTipo) {
-  return CATEGORIAS.find(c => c.tipo === tipo) ?? { emoji: '🏆', label: tipo }
+  const map: Record<CategoriaProvaTipo, { emoji: string; label: string }> = {
+    grande_volta: { emoji: '🏔️', label: 'Grande Volta' },
+    prova_semana: { emoji: '📅', label: 'Prova de uma semana' },
+    monumento:    { emoji: '🗿', label: 'Monumento' },
+    prova_dia:    { emoji: '⚡', label: 'Prova de um dia' },
+  }
+  return map[tipo] ?? { emoji: '🏆', label: tipo }
 }
 
 export default async function PerfilPage({ params }: Props) {
@@ -24,7 +41,7 @@ export default async function PerfilPage({ params }: Props) {
 
   const supabase = await createClient()
 
-  // Perfil
+  // Perfil — inclui jogos_historicos se existir
   const { data: perfil, error } = await supabase
     .from('perfis')
     .select('*')
@@ -33,7 +50,7 @@ export default async function PerfilPage({ params }: Props) {
 
   if (error || !perfil) redirect('/')
 
-  // Stats gerais + vitórias agregadas
+  // Stats gerais (app) + vitórias agregadas
   const [leaderboard, todasVitorias] = await Promise.all([
     getLeaderboardGeral(),
     getVitoriasAgregadas(),
@@ -42,19 +59,21 @@ export default async function PerfilPage({ params }: Props) {
   const statsGerais   = leaderboard.find(e => e.perfil.id === userId)
   const statsVitorias = todasVitorias.find(v => v.perfil.id === userId)
 
-  const competicoes = statsGerais?.apostas.calculadas ?? 0
-  const vitorias    = statsVitorias?.total ?? 0
-  const pontosTotal = statsGerais?.pontos_total ?? 0
-  const pctVitoria  = competicoes > 0 ? Math.round((vitorias / competicoes) * 100) : 0
-  const rankGeral   = statsGerais?.rank ?? null
+  // Competições = histórico pré-app + calculadas na app
+  const jogosHistoricos  = (perfil as any).jogos_historicos ?? 0
+  const jogosApp         = statsGerais?.apostas.calculadas ?? 0
+  const competicoes      = jogosHistoricos + jogosApp
+
+  const vitorias   = statsVitorias?.total ?? 0
+  const rankGeral  = statsGerais?.rank ?? null
+  const pctVitoria = competicoes > 0 ? Math.round((vitorias / competicoes) * 100) : 0
 
   // ── Palmares ─────────────────────────────────────────
-  // 1. Vitórias históricas (pré-app)
+  // 1. Vitórias históricas (pré-app) deste utilizador
   const { data: historicasRaw } = await supabase
     .from('vitorias_historicas')
     .select('*')
     .eq('user_id', userId)
-    .order('ano', { ascending: false })
 
   const historicas = (historicasRaw ?? []) as {
     id: string; ano: number; nome_prova: string; categoria: CategoriaProvaTipo
@@ -82,7 +101,7 @@ export default async function PerfilPage({ params }: Props) {
     }
   }
 
-  // Combinar e ordenar por ano desc
+  // Combinar + ordenar: ano desc, dentro do mesmo ano Vuelta > Tour > Giro
   type EntradaPalmar = {
     key: string; nome: string; ano: number
     categoria: CategoriaProvaTipo; provaId?: string; tipo: 'historica' | 'app'
@@ -97,7 +116,14 @@ export default async function PerfilPage({ params }: Props) {
       key: `app-${p.provaId}`, nome: p.nome, ano: p.ano,
       categoria: p.categoria, provaId: p.provaId, tipo: 'app' as const,
     })),
-  ].sort((a, b) => b.ano - a.ano || a.nome.localeCompare(b.nome))
+  ].sort((a, b) =>
+    b.ano - a.ano || ordemDentroAno(b.nome) - ordemDentroAno(a.nome)
+  )
+
+  // ── Giro / Tour / Vuelta counts ───────────────────────
+  const giroWins   = palmares.filter(e => tipoGrandeVolta(e.nome) === 'giro').length
+  const tourWins   = palmares.filter(e => tipoGrandeVolta(e.nome) === 'tour').length
+  const vueltaWins = palmares.filter(e => tipoGrandeVolta(e.nome) === 'vuelta').length
 
   const initial = perfil.username?.[0]?.toUpperCase() ?? '?'
 
@@ -106,7 +132,7 @@ export default async function PerfilPage({ params }: Props) {
 
       <div className="animate-fade-up">
         <Link href="/" style={{
-          fontSize: '0.78rem', color: 'var(--text-dim)',
+          fontSize: '0.78rem', color: '#9a9ab5',
           display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
           textDecoration: 'none', marginBottom: '0.75rem',
         }}>
@@ -114,12 +140,13 @@ export default async function PerfilPage({ params }: Props) {
         </Link>
       </div>
 
-      {/* Profile card */}
+      {/* ── Profile card ───────────────────────────────── */}
       <div className="card-flush animate-fade-up">
+        {/* Header */}
         <div style={{
           padding: '1.75rem 1.5rem',
           background: 'linear-gradient(135deg, rgba(200,244,0,0.08) 0%, rgba(200,244,0,0.02) 50%, transparent 100%)',
-          borderBottom: '1px solid var(--border)',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
           display: 'flex', alignItems: 'center', gap: '1.25rem',
         }}>
           <div style={{
@@ -142,30 +169,36 @@ export default async function PerfilPage({ params }: Props) {
             )}
             <h1 style={{
               fontFamily: 'Barlow Condensed, sans-serif',
-              fontSize: '2.25rem', fontWeight: 900,
-              textTransform: 'uppercase', letterSpacing: '0.04em',
-              color: 'var(--text)', lineHeight: 1,
+              fontSize: '2.25rem', fontWeight: 900, textTransform: 'uppercase',
+              letterSpacing: '0.04em', color: 'var(--text)', lineHeight: 1,
             }}>
               {perfil.username}
             </h1>
             {perfil.full_name && (
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-dim)', marginTop: '0.25rem' }}>
+              <p style={{ fontSize: '0.82rem', color: '#9a9ab5', marginTop: '0.25rem' }}>
                 {perfil.full_name}
               </p>
             )}
           </div>
         </div>
 
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBottom: '1px solid var(--border)' }}>
+        {/* Stats: Competições · Vitórias · % Vitória */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+        }}>
           {[
-            { label: 'Competições', value: competicoes, color: 'var(--text)' },
-            { label: 'Vitórias',    value: vitorias,    color: vitorias > 0 ? 'var(--lime)' : 'var(--text)' },
-            { label: '% Vitória',   value: `${pctVitoria}%`, color: pctVitoria >= 50 ? 'var(--green)' : pctVitoria > 0 ? '#ffc800' : 'var(--text-dim)' },
+            { label: 'Competições', value: competicoes, color: '#e0e0f0' },
+            { label: 'Vitórias',    value: vitorias,    color: vitorias > 0 ? 'var(--lime)' : '#e0e0f0' },
+            {
+              label: '% Vitória',
+              value: `${pctVitoria}%`,
+              color: pctVitoria >= 50 ? 'var(--green)' : pctVitoria > 0 ? '#ffc800' : '#9a9ab5',
+            },
           ].map((stat, i) => (
             <div key={stat.label} style={{
               padding: '1.5rem 1rem', textAlign: 'center',
-              borderRight: i < 2 ? '1px solid var(--border)' : 'none',
+              borderRight: i < 2 ? '1px solid rgba(255,255,255,0.1)' : 'none',
             }}>
               <div style={{
                 fontFamily: 'Barlow Condensed, sans-serif',
@@ -174,34 +207,62 @@ export default async function PerfilPage({ params }: Props) {
               }}>
                 {stat.value}
               </div>
-              <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <div style={{
+                fontSize: '0.65rem', fontWeight: 700, color: '#9a9ab5',
+                textTransform: 'uppercase', letterSpacing: '0.1em',
+              }}>
                 {stat.label}
               </div>
             </div>
           ))}
         </div>
 
-        <div style={{
-          padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          background: 'var(--surface-2)',
-        }}>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Pontos totais acumulados
-          </span>
-          <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.5rem', fontWeight: 900, color: 'var(--lime)' }}>
-            {pontosTotal} <span style={{ fontSize: '0.7rem', color: 'var(--text-sub)', fontWeight: 400 }}>pts</span>
-          </span>
+        {/* Giro · Tour · Vuelta wins */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          {[
+            { label: 'Giro', wins: giroWins,   emoji: '🇮🇹' },
+            { label: 'Tour', wins: tourWins,   emoji: '🇫🇷' },
+            { label: 'Vuelta', wins: vueltaWins, emoji: '🇪🇸' },
+          ].map((item, i) => (
+            <div key={item.label} style={{
+              padding: '1.1rem 1rem', textAlign: 'center',
+              borderRight: i < 2 ? '1px solid rgba(255,255,255,0.1)' : 'none',
+              background: item.wins > 0 ? 'rgba(200,244,0,0.04)' : 'transparent',
+            }}>
+              <div style={{ fontSize: '1rem', marginBottom: '0.3rem' }}>{item.emoji}</div>
+              <div style={{
+                fontFamily: 'Barlow Condensed, sans-serif',
+                fontSize: '1.75rem', fontWeight: 900,
+                color: item.wins > 0 ? 'var(--lime)' : '#6a6a86',
+                lineHeight: 1, marginBottom: '0.3rem',
+              }}>
+                {item.wins}
+              </div>
+              <div style={{
+                fontSize: '0.62rem', fontWeight: 700, color: '#9a9ab5',
+                textTransform: 'uppercase', letterSpacing: '0.1em',
+              }}>
+                {item.label}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Palmares */}
+      {/* ── Palmares ───────────────────────────────────── */}
       {palmares.length > 0 && (
         <div className="card-flush animate-fade-up delay-1">
-          <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)' }}>
-            <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.15rem' }}>
+          <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <p style={{
+              fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.15rem',
+            }}>
               🏆 Historial
             </p>
-            <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.2rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <h2 style={{
+              fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.2rem',
+              fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}>
               Competições Ganhas
             </h2>
           </div>
@@ -209,12 +270,14 @@ export default async function PerfilPage({ params }: Props) {
           <div>
             {palmares.map((entrada, idx) => {
               const cat = labelCategoria(entrada.categoria)
+              const tipo = tipoGrandeVolta(entrada.nome)
+              const flagEmoji = tipo === 'giro' ? '🇮🇹' : tipo === 'tour' ? '🇫🇷' : tipo === 'vuelta' ? '🇪🇸' : '🏆'
 
               const inner = (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: '1rem',
                   padding: '0.875rem 1.25rem',
-                  borderBottom: idx < palmares.length - 1 ? '1px solid var(--border)' : 'none',
+                  borderBottom: idx < palmares.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none',
                 }}>
                   {/* Year */}
                   <span style={{
@@ -226,36 +289,39 @@ export default async function PerfilPage({ params }: Props) {
                   </span>
 
                   {/* Separator */}
-                  <div style={{ width: 1, height: 30, background: 'var(--border)', flexShrink: 0 }} />
+                  <div style={{ width: 1, height: 30, background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
 
-                  {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{
-                      fontSize: '0.9rem', fontWeight: 600,
-                      color: entrada.provaId ? 'var(--text)' : 'var(--text-dim)',
-                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    }}>
-                      {entrada.nome}
-                    </p>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-sub)', marginTop: '0.1rem' }}>
-                      {cat.emoji} {cat.label}
-                    </p>
+                  {/* Race flag + name */}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1rem', flexShrink: 0 }}>{flagEmoji}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{
+                        fontSize: '0.9rem', fontWeight: 600,
+                        color: entrada.provaId ? '#e0e0f0' : '#b0b0c8',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        {entrada.nome}
+                      </p>
+                      <p style={{ fontSize: '0.7rem', color: '#9a9ab5', marginTop: '0.1rem' }}>
+                        {cat.emoji} {cat.label}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Badge + trophy */}
+                  {/* Badge + indicator */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                    {entrada.tipo === 'historica' && (
+                    {entrada.tipo === 'historica' ? (
                       <span style={{
-                        fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-sub)',
-                        background: 'var(--surface-2)', border: '1px solid var(--border)',
-                        padding: '0.15rem 0.45rem', borderRadius: '999px',
+                        fontSize: '0.6rem', fontWeight: 700, color: '#9a9ab5',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        padding: '0.15rem 0.5rem', borderRadius: '999px',
                         textTransform: 'uppercase', letterSpacing: '0.06em',
                       }}>
                         Histórico
                       </span>
-                    )}
-                    {entrada.provaId && (
-                      <span style={{ fontSize: '0.6rem', color: 'var(--lime)', opacity: 0.7 }}>→</span>
+                    ) : (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--lime)', opacity: 0.7 }}>→</span>
                     )}
                     <span style={{ fontSize: '1rem' }}>🏆</span>
                   </div>
@@ -278,15 +344,21 @@ export default async function PerfilPage({ params }: Props) {
         </div>
       )}
 
-      {/* Points breakdown */}
+      {/* ── Points breakdown ───────────────────────────── */}
       {statsGerais && (
         <div className="card-flush animate-fade-up delay-2">
-          <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)' }}>
-            <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.15rem' }}>
+          <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+            <p style={{
+              fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.15rem',
+            }}>
               📊 Detalhe
             </p>
-            <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.2rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Pontuação
+            <h2 style={{
+              fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.2rem',
+              fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}>
+              Pontuação na App
             </h2>
           </div>
           <div style={{ padding: '0.25rem 1.25rem' }}>
@@ -299,10 +371,13 @@ export default async function PerfilPage({ params }: Props) {
               <div key={item.label} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '0.75rem 0',
-                borderBottom: idx < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                borderBottom: idx < arr.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none',
               }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>{item.label}</span>
-                <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text)' }}>
+                <span style={{ fontSize: '0.85rem', color: '#b0b0c8' }}>{item.label}</span>
+                <span style={{
+                  fontFamily: 'Barlow Condensed, sans-serif',
+                  fontSize: '1.1rem', fontWeight: 800, color: '#e0e0f0',
+                }}>
                   {item.value}
                 </span>
               </div>
