@@ -11,7 +11,6 @@ import { categorizarProva } from '@/lib/provaStatus'
 import { ProvasList } from '@/components/dashboard/ProvasList'
 import ClassificacaoProvaTable from '@/components/dashboard/ClassificacaoProvaTable'
 import VitoriasJogadores from '@/components/dashboard/VitoriasJogadores'
-import type { VitoriaHistorica } from '@/types'
 
 function tipoGrandeVolta(nome: string): 'giro' | 'tour' | 'vuelta' | null {
   const n = nome.toLowerCase()
@@ -59,20 +58,7 @@ export default async function HomePage() {
   const vitorias = await getVitoriasAgregadas()
 
   // ── Grandes Voltas breakdown ──────────────────────────
-  // 1. Vitórias históricas com nome da prova
-  const { data: historicasRaw } = await supabase
-    .from('vitorias_historicas')
-    .select('user_id, nome_prova')
-
-  const historicas = (historicasRaw ?? []) as { user_id: string; nome_prova: string }[]
-
-  // 2. Provas da app finalizadas → quem ganhou
-  const { data: provasFinalizadas } = await supabase
-    .from('provas')
-    .select('id, nome')
-    .eq('status', 'finalizada')
-
-  // Inicializar mapa por userId
+  // Mapa: perfil.id → { giro, tour, vuelta }
   const gvMap = new Map<string, { giro: number; tour: number; vuelta: number }>()
 
   const ensureEntry = (uid: string) => {
@@ -80,22 +66,31 @@ export default async function HomePage() {
     return gvMap.get(uid)!
   }
 
-  // Contar históricas
-  for (const h of historicas) {
+  // 1. Histórico pré-app — join com perfis para obter o mesmo ID que VitoriasJogador usa
+  const { data: historicasRaw } = await supabase
+    .from('vitorias_historicas')
+    .select('nome_prova, perfil:perfis!user_id(id)')
+
+  for (const h of (historicasRaw ?? [])) {
+    const perfilId = (h.perfil as any)?.id as string | undefined
+    if (!perfilId) continue
     const tipo = tipoGrandeVolta(h.nome_prova)
     if (!tipo) continue
-    const entry = ensureEntry(h.user_id)
-    entry[tipo]++
+    ensureEntry(perfilId)[tipo]++
   }
 
-  // Contar app
+  // 2. Provas da app finalizadas — vencedor do leaderboard
+  const { data: provasFinalizadas } = await supabase
+    .from('provas')
+    .select('id, nome, categoria')
+    .eq('status', 'finalizada')
+
   for (const prova of (provasFinalizadas ?? [])) {
     const tipo = tipoGrandeVolta(prova.nome)
     if (!tipo) continue
     const lb = await getLeaderboardProva(prova.id)
     if (lb.length > 0 && lb[0].perfil?.id) {
-      const entry = ensureEntry(lb[0].perfil.id)
-      entry[tipo]++
+      ensureEntry(lb[0].perfil.id)[tipo]++
     }
   }
 
@@ -152,7 +147,7 @@ export default async function HomePage() {
         </div>
 
         <div>
-          <div style={{ marginBottom: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ marginBottom: '0.85rem' }}>
             <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.15rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Próximas Provas
             </h2>
