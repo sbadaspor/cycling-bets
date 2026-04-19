@@ -14,8 +14,12 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
   const categoria = aposta.prova?.categoria
   const config = getConfigCategoria(categoria)
   const numPos = config.numPosicoes
-  const topAlto = numPos === 20 ? 10 : 5
-  const topBaixo = numPos === 20 ? 20 : 10
+  const isSimples = categoria === 'monumento' || categoria === 'prova_dia'
+
+  // Para grande volta: top alto = 10, top baixo = 20
+  // Para simples: só top-10
+  const topAlto = 10
+  const topBaixo = 20
 
   const resultado = ultimaEtapa?.classificacao_geral_top20 ?? Array(20).fill('')
   const adicionais = ultimaEtapa?.posicoes_adicionais ?? []
@@ -43,20 +47,38 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
   adicionais.forEach(a => { if (a.nome?.trim()) posReal.set(a.nome.trim().toLowerCase(), a.posicao) })
 
   function dadosLinha(apostado: string, posApostada: number) {
-    if (!ultimaEtapa || !apostado.trim()) return { pts: 0, posReal: null as number | null, color: 'var(--surface-2)' }
+    if (!ultimaEtapa || !apostado.trim()) return { pts: 0, posRealVal: null as number | null, color: 'var(--surface-2)' }
     const pr = posReal.get(apostado.trim().toLowerCase()) ?? null
-    let pts = 0; let color = 'var(--surface-2)'
+    let pts = 0
+    let color = 'var(--surface-2)'
+
     if (pr !== null) {
-      const apostadoNoAlto = posApostada <= topAlto; const realNoAlto = pr <= topAlto; const realNoBaixo = pr <= topBaixo
-      if (apostadoNoAlto && realNoAlto) {
-        pts = 3; color = pr === posApostada ? 'rgba(68,204,136,0.15)' : 'rgba(68,204,136,0.08)'
-      } else if (!apostadoNoAlto && realNoBaixo && pr > topAlto) {
-        pts = 2; color = pr === posApostada ? 'rgba(68,204,136,0.12)' : 'rgba(255,200,0,0.06)'
-      } else if (!apostadoNoAlto && realNoAlto) {
-        pts = 1; color = 'rgba(255,200,0,0.06)'
+      if (isSimples) {
+        // Monumento / prova de um dia
+        const exato = posApostada === pr
+        pts = exato ? 2 : 1
+        color = exato ? 'rgba(68,204,136,0.15)' : 'rgba(68,204,136,0.08)'
+      } else {
+        // Grande volta / prova de semana
+        const apostadoNoAlto = posApostada <= topAlto
+        const apostadoNoBaixo = posApostada > topAlto && posApostada <= topBaixo
+        const realNoAlto = pr <= topAlto
+        const realNoBaixo = pr > topAlto && pr <= topBaixo
+
+        if (apostadoNoAlto && realNoAlto) {
+          pts = 3
+          color = pr === posApostada ? 'rgba(68,204,136,0.15)' : 'rgba(68,204,136,0.08)'
+        } else if (apostadoNoBaixo && realNoBaixo) {
+          pts = 2
+          color = pr === posApostada ? 'rgba(68,204,136,0.12)' : 'rgba(255,200,0,0.06)'
+        } else if (apostadoNoBaixo && realNoAlto) {
+          pts = 1
+          color = 'rgba(255,200,0,0.06)'
+        }
+        // apostadoNoAlto && realNoBaixo → 0 pts
       }
     }
-    return { pts, posReal: pr, color }
+    return { pts, posRealVal: pr, color }
   }
 
   const statBoxStyle = (highlight = false) => ({
@@ -65,6 +87,12 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
     border: `1px solid ${highlight ? 'rgba(200,244,0,0.25)' : 'var(--border)'}`,
     textAlign: 'center' as const,
   })
+
+  // Labels das colunas de pontuação
+  const col1Label = isSimples ? 'Acertos' : `Top 1-${topAlto}`
+  const col1Sub = isSimples ? '1pt + 1pt exato' : '3 pts/acerto'
+  const col2Label = isSimples ? null : `Top ${topAlto + 1}-${topBaixo}`
+  const col2Sub = isSimples ? null : '2 pts + bónus'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
@@ -87,17 +115,26 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${config.temCamisolas ? 4 : 3}, 1fr)`, gap: '0.625rem', marginBottom: '0.875rem' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isSimples
+                  ? 'repeat(2, 1fr)'
+                  : `repeat(${config.temCamisolas ? 4 : 3}, 1fr)`,
+                gap: '0.625rem',
+                marginBottom: '0.875rem'
+              }}>
                 <div style={statBoxStyle()}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Top 1-{topAlto}</div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{col1Label}</div>
                   <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 900, color: 'var(--lime)' }}>{calc!.pontos_top10}</div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginTop: '0.2rem' }}>3 pts/acerto</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginTop: '0.2rem' }}>{col1Sub}</div>
                 </div>
-                <div style={statBoxStyle()}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Top {topAlto+1}-{topBaixo}</div>
-                  <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 900, color: 'var(--text)' }}>{calc!.pontos_top20}</div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginTop: '0.2rem' }}>2 pts + bónus</div>
-                </div>
+                {!isSimples && col2Label && (
+                  <div style={statBoxStyle()}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{col2Label}</div>
+                    <div style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 900, color: 'var(--text)' }}>{calc!.pontos_top20}</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginTop: '0.2rem' }}>{col2Sub}</div>
+                  </div>
+                )}
                 {config.temCamisolas && (
                   <div style={statBoxStyle()}>
                     <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>🎽</div>
@@ -129,8 +166,8 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
           {Array.from({ length: numPos }).map((_, idx) => {
             const apostado = aposta.apostas_top20[idx] ?? ''
             const posApostada = idx + 1
-            const { pts, posReal: pr, color } = dadosLinha(apostado, posApostada)
-            const isAlto = posApostada <= topAlto
+            const { pts, posRealVal: pr, color } = dadosLinha(apostado, posApostada)
+            const isAlto = !isSimples && posApostada <= topAlto
 
             return (
               <div key={idx} style={{
@@ -145,9 +182,9 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '0.72rem', fontWeight: 800,
                   fontFamily: 'Barlow Condensed, sans-serif',
-                  background: isAlto ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
-                  border: `1px solid ${isAlto ? 'rgba(200,244,0,0.2)' : 'var(--border)'}`,
-                  color: isAlto ? 'var(--lime)' : 'var(--text-dim)',
+                  background: isSimples || isAlto ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
+                  border: `1px solid ${isSimples || isAlto ? 'rgba(200,244,0,0.2)' : 'var(--border)'}`,
+                  color: isSimples || isAlto ? 'var(--lime)' : 'var(--text-dim)',
                 }}>{posApostada}</div>
 
                 {/* Name + result badge */}
@@ -159,8 +196,8 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
                     pr !== null ? (
                       <span style={{
                         fontSize: '0.7rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: '999px',
-                        background: pr === posApostada ? 'rgba(68,204,136,0.2)' : pr <= topAlto ? 'rgba(68,204,136,0.1)' : pr <= topBaixo ? 'rgba(255,200,0,0.1)' : 'var(--surface-2)',
-                        color: pr === posApostada ? 'var(--green)' : pr <= topBaixo ? '#ffc800' : 'var(--text-dim)',
+                        background: pr === posApostada ? 'rgba(68,204,136,0.2)' : 'rgba(255,200,0,0.1)',
+                        color: pr === posApostada ? 'var(--green)' : '#ffc800',
                         border: `1px solid ${pr === posApostada ? 'rgba(68,204,136,0.3)' : 'transparent'}`,
                       }}>
                         {pr === posApostada ? `✓ ${pr}º` : `→ ${pr}º`}
@@ -208,8 +245,8 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
               { tipo: 'montanha' as const, label: '🔴 Montanha', apostado: camisolasAposta.montanha, real: camisolasReais.montanha },
               { tipo: 'juventude' as const, label: '⚪ Juventude', apostado: camisolasAposta.juventude, real: camisolasReais.juventude },
             ].map(c => {
-              const breakdown = camisolaBreakdown.find(b => b.tipo === c.tipo)
-              const acertou = breakdown?.acertou ?? false
+              const bd = camisolaBreakdown.find(b => b.tipo === c.tipo)
+              const acertou = bd?.acertou ?? false
               return (
                 <div key={c.tipo} style={{
                   borderRadius: '0.875rem', padding: '0.875rem',
