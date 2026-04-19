@@ -129,6 +129,21 @@ export default async function PerfilPage({ params }: Props) {
   const vueltaWins = palmares.filter(e => tipoGrandeVolta(e.nome) === 'vuelta').length
 
   const initial = perfil.username?.[0]?.toUpperCase() ?? '?'
+  const avatarUrlPerfil = (perfil as any).avatar_url as string | undefined
+
+  // Calcular idade e formatar data de nascimento
+  const dataNasc = (perfil as any).data_nascimento as string | null | undefined
+  let idade: number | null = null
+  let dataNascFormatada: string | null = null
+  if (dataNasc) {
+    const nasc = new Date(dataNasc)
+    const hoje = new Date()
+    idade = hoje.getFullYear() - nasc.getFullYear()
+    const aindaNaoFez = hoje.getMonth() < nasc.getMonth() ||
+      (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate())
+    if (aindaNaoFez) idade--
+    dataNascFormatada = nasc.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' })
+  }
 
   return (
     <div className="max-w-xl mx-auto" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
@@ -152,16 +167,24 @@ export default async function PerfilPage({ params }: Props) {
           borderBottom: '1px solid rgba(255,255,255,0.1)',
           display: 'flex', alignItems: 'center', gap: '1.25rem',
         }}>
+          {/* Avatar */}
           <div style={{
-            width: 72, height: 72, borderRadius: '50%', flexShrink: 0,
-            background: 'rgba(200,244,0,0.12)', border: '2px solid rgba(200,244,0,0.3)',
+            width: 76, height: 76, borderRadius: '50%', flexShrink: 0,
+            background: avatarUrlPerfil ? 'transparent' : 'rgba(200,244,0,0.12)',
+            border: '2.5px solid rgba(200,244,0,0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: 'Barlow Condensed, sans-serif',
             fontSize: '2rem', fontWeight: 900, color: 'var(--lime)',
+            overflow: 'hidden',
           }}>
-            {initial}
+            {avatarUrlPerfil
+              ? <img src={avatarUrlPerfil} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : initial
+            }
           </div>
-          <div>
+
+          {/* Info */}
+          <div style={{ flex: 1, minWidth: 0 }}>
             {rankGeral && (
               <p style={{
                 fontSize: '0.65rem', fontWeight: 700, color: 'var(--lime)',
@@ -174,12 +197,23 @@ export default async function PerfilPage({ params }: Props) {
               fontFamily: 'Barlow Condensed, sans-serif',
               fontSize: '2.25rem', fontWeight: 900, textTransform: 'uppercase',
               letterSpacing: '0.04em', color: 'var(--text)', lineHeight: 1,
+              marginBottom: '0.3rem',
             }}>
               {perfil.username}
             </h1>
             {perfil.full_name && (
-              <p style={{ fontSize: '0.82rem', color: '#9a9ab5', marginTop: '0.25rem' }}>
+              <p style={{ fontSize: '0.88rem', color: '#e0e0f0', fontWeight: 500 }}>
                 {perfil.full_name}
+              </p>
+            )}
+            {dataNascFormatada && (
+              <p style={{ fontSize: '0.78rem', color: '#9a9ab5', marginTop: '0.2rem' }}>
+                📅 {dataNascFormatada}
+                {idade !== null && (
+                  <span style={{ color: 'var(--lime)', fontWeight: 700, marginLeft: '0.4rem' }}>
+                    ({idade} anos)
+                  </span>
+                )}
               </p>
             )}
           </div>
