@@ -1,24 +1,22 @@
 /**
  * MOTOR DE PONTUAÇÃO - Sistema de Apostas de Ciclismo
  *
- * Regras para Top-20 (Grande Volta, Prova de uma semana):
- * - Apostado Top-10 + Real Top-10 → 3 pts
- * - Apostado 11-20 + Real 11-20 → 2 pts
- * - Apostado 11-20 + Real Top-10 → 1 pt (bónus)
- * - Apostado Top-10 + Real 11-20 → 0 pts
+ * Grande Volta / Prova de uma semana (Top-20):
+ * - Ciclista apostado no Top-10 E está no Top-10 real → 3 pts
+ * - Ciclista apostado no 11-20 E está no 11-20 real → 2 pts
+ * - Ciclista apostado no 11-20 E está no Top-10 real → 1 pt (bónus)
+ * - Ciclista apostado no Top-10 E está no 11-20 real → 0 pts
+ * - Camisolas: 1 pt por acerto
  *
- * Regras para Top-10 (Monumento, Prova de um dia):
- * - Ciclista no top-10 real → 1 pt
+ * Monumento / Prova de um dia (Top-10):
+ * - Ciclista apostado está no Top-10 real → 1 pt
  * - Posição exata → +1 pt extra (total 2 pts)
  *
- * Camisolas: 1 pt por acerto (só grande volta / prova semana)
- *
- * Desempate:
- * 1. Maior nº de pontos total
- * 2. Maior nº de posições exatas (total)
- * 3. Maior nº de posições exatas no "top alto"
- * 4. Maior nº de posições exatas no "top baixo"
- * 5. Maior nº de camisolas certas
+ * Desempate (não dá pontos):
+ * 1. Maior nº de posições exatas (total)
+ * 2. Maior nº de posições exatas no top alto
+ * 3. Maior nº de posições exatas no top baixo
+ * 4. Maior nº de camisolas certas
  */
 
 import type { PontosCalculo, PontoBreakdownItem, CamisolaBreakdown, CategoriaProvaTipo } from '@/types'
@@ -34,8 +32,8 @@ export function calcularPontos(
   const config = getConfigCategoria(categoria)
   const numPos = config.numPosicoes
   const isSimples = categoria === 'monumento' || categoria === 'prova_dia'
-  const topAlto = numPos === 20 ? 10 : 5
-  const topBaixo = numPos === 20 ? 20 : 10
+  const topAlto = 10
+  const topBaixo = 20
 
   const breakdown: PontoBreakdownItem[] = []
   let pontos_top10 = 0
@@ -52,7 +50,7 @@ export function calcularPontos(
 
   apostasTopN.forEach((ciclista, idx) => {
     if (!ciclista || !ciclista.trim()) return
-    if (idx >= numPos) return  // ignora posições além do que a categoria prevê
+    if (idx >= numPos) return
 
     const nomeLower = ciclista.trim().toLowerCase()
     const posApostada = idx + 1
@@ -64,38 +62,32 @@ export function calcularPontos(
 
     if (isSimples) {
       // ── Monumento / Prova de um dia ──────────────────
-      // 1 pt por estar no top-10, +1 pt extra se posição exata
+      // 1 pt por estar no top-10 real, +1 se posição exata
       if (posReal === null) {
         tipo = 'nao_top20'
         pontos = 0
         descricao = `Não entrou no Top-${numPos}`
       } else {
         const exato = posApostada === posReal
-        pontos = exato ? 2 : 1
-        tipo = exato ? 'top10_exato' : 'top10_bonus'
-        descricao = `Apostado ${posApostada}º, terminou ${posReal}º`
         if (exato) {
+          pontos = 2
+          tipo = 'top10_exato'
           acertos_exatos++
           acertos_exatos_top10++
-          descricao += ' ✓ Posição Exata!'
+          descricao = `Apostado ${posApostada}º, terminou ${posReal}º ✓ Posição Exata!`
+        } else {
+          pontos = 1
+          tipo = 'top10_bonus'
+          descricao = `Apostado ${posApostada}º, terminou ${posReal}º`
         }
         pontos_top10 += pontos
-        breakdown.push({
-          ciclista: ciclista.trim(),
-          posicao_apostada: posApostada,
-          posicao_real: posReal,
-          pontos,
-          tipo,
-          descricao,
-        })
-        return
       }
     } else {
       // ── Grande Volta / Prova de uma semana ───────────
       const apostadoNoAlto = posApostada <= topAlto
-      const apostadoNoBaixoFora = posApostada > topAlto && posApostada <= topBaixo
+      const apostadoNoBaixo = posApostada > topAlto && posApostada <= topBaixo
       const realNoAlto = posReal !== null && posReal <= topAlto
-      const realNoBaixoFora = posReal !== null && posReal > topAlto && posReal <= topBaixo
+      const realNoBaixo = posReal !== null && posReal > topAlto && posReal <= topBaixo
 
       if (posReal === null) {
         tipo = 'nao_top20'
@@ -110,7 +102,8 @@ export function calcularPontos(
           acertos_exatos_top10++
           descricao += ' ✓ Posição Exata!'
         }
-      } else if (apostadoNoBaixoFora && realNoBaixoFora) {
+        pontos_top10 += pontos
+      } else if (apostadoNoBaixo && realNoBaixo) {
         pontos = 2
         tipo = 'top20_exato'
         descricao = `Apostado ${posApostada}º, terminou ${posReal}º`
@@ -119,24 +112,21 @@ export function calcularPontos(
           acertos_exatos_top20++
           descricao += ' ✓ Posição Exata!'
         }
-      } else if (apostadoNoBaixoFora && realNoAlto) {
+        pontos_top20 += pontos
+      } else if (apostadoNoBaixo && realNoAlto) {
         pontos = 1
         tipo = 'top10_bonus'
         descricao = `Apostado ${posApostada}º, terminou ${posReal}º (bónus)`
-      } else if (apostadoNoAlto && realNoBaixoFora) {
+        pontos_top20 += pontos
+      } else if (apostadoNoAlto && realNoBaixo) {
         pontos = 0
         tipo = 'top20_bonus'
         descricao = `Apostado ${posApostada}º, terminou ${posReal}º (sem pontos)`
+        pontos_top10 += pontos
       } else {
         tipo = 'fora'
         pontos = 0
         descricao = `Apostado ${posApostada}º, terminou ${posReal}º`
-      }
-
-      if (apostadoNoAlto) {
-        pontos_top10 += pontos
-      } else {
-        pontos_top20 += pontos
       }
     }
 
@@ -185,7 +175,6 @@ export function calcularCamisolas(
     const apostado = apostadas[tipo] ?? ''
     const real = reais[tipo] ?? ''
     const acertou = apostado.trim().toLowerCase() === real.trim().toLowerCase() && apostado.trim() !== ''
-
     return {
       tipo,
       apostado: apostado.trim(),
@@ -221,9 +210,9 @@ export function compararDesempate(
 
 export function getPontoTipoLabel(tipo: PontoBreakdownItem['tipo']): string {
   const labels: Record<PontoBreakdownItem['tipo'], string> = {
-    top10_exato: '2 pts',
-    top20_exato: '2 pts',
-    top10_bonus: '1 pt',
+    top10_exato: '+3 pts',
+    top20_exato: '+2 pts',
+    top10_bonus: '+1 pt',
     top20_bonus: '0 pts',
     fora: '0 pts',
     nao_top20: '0 pts',
