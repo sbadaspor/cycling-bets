@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { calcularPontos } from '@/lib/pontuacao'
-import type { ResultadoFormData } from '@/types'
+import type { ResultadoFormData, CategoriaProvaTipo } from '@/types'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -29,6 +29,15 @@ export async function POST(req: NextRequest) {
   if (!prova_id || !resultado_top20 || resultado_top20.length !== 20) {
     return NextResponse.json({ error: 'Dados inválidos. Necessário 20 ciclistas no resultado.' }, { status: 400 })
   }
+
+  // Obter categoria da prova
+  const { data: prova } = await supabase
+    .from('provas')
+    .select('nome, categoria')
+    .eq('id', prova_id)
+    .single()
+
+  const categoria = prova?.categoria as CategoriaProvaTipo | undefined
 
   // Upsert do resultado real
   const { error: resultadoError } = await supabase
@@ -75,7 +84,8 @@ export async function POST(req: NextRequest) {
       aposta.apostas_top20,
       resultado_top20,
       apostaCamisolas,
-      resultadoCamisolas
+      resultadoCamisolas,
+      categoria
     )
 
     const { error: updateError } = await supabase
@@ -105,12 +115,6 @@ export async function POST(req: NextRequest) {
 
   // Enviar notificação a todos os subscritores
   try {
-    const { data: prova } = await supabase
-      .from('provas')
-      .select('nome')
-      .eq('id', prova_id)
-      .single()
-
     await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notify`, {
       method: 'POST',
       headers: {
