@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link'
 import type { Aposta, EtapaResultado, Prova } from '@/types'
 import { compararDesempate } from '@/lib/pontuacao'
