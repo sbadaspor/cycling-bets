@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { ApostaFormData } from '@/types'
+import { getConfigCategoria } from '@/lib/categoriaConfig'
+import type { ApostaFormData, CategoriaProvaTipo } from '@/types'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -13,19 +14,14 @@ export async function POST(req: NextRequest) {
   const body: ApostaFormData = await req.json()
   const { prova_id, apostas_top20, camisola_sprint, camisola_montanha, camisola_juventude } = body
 
-  // Validações
-  if (!prova_id || !apostas_top20 || apostas_top20.length !== 20) {
-    return NextResponse.json({ error: 'Dados inválidos. Necessário 20 ciclistas.' }, { status: 400 })
+  if (!prova_id || !apostas_top20) {
+    return NextResponse.json({ error: 'Dados inválidos.' }, { status: 400 })
   }
 
-  if (apostas_top20.some(c => !c.trim())) {
-    return NextResponse.json({ error: 'Todos os 20 lugares devem ser preenchidos.' }, { status: 400 })
-  }
-
-  // Verificar se prova existe e está aberta
+  // Verificar se prova existe, está aberta e obter categoria
   const { data: prova } = await supabase
     .from('provas')
-    .select('id, status')
+    .select('id, status, categoria')
     .eq('id', prova_id)
     .single()
 
@@ -33,7 +29,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Prova não disponível para apostas.' }, { status: 400 })
   }
 
-  // Upsert da aposta
+  // Determinar número de posições com base na categoria
+  const config = getConfigCategoria(prova.categoria as CategoriaProvaTipo)
+  const numPos = config.numPosicoes
+
+  // Validar número de ciclistas preenchidos (as posições extra são strings vazias)
+  const preenchidos = apostas_top20.filter(c => c.trim())
+  if (preenchidos.length !== numPos) {
+    return NextResponse.json(
+      { error: `Todos os ${numPos} lugares devem ser preenchidos.` },
+      { status: 400 }
+    )
+  }
+
+  // Upsert da aposta (sempre com array de 20 — posições extra ficam vazias)
   const { data, error } = await supabase
     .from('apostas')
     .upsert({
