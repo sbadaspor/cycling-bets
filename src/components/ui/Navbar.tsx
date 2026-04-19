@@ -3,9 +3,15 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 import type { Perfil } from '@/types'
+
+const NotificationButton = dynamic(
+  () => import('@/components/ui/NotificationButton'),
+  { ssr: false }
+)
 
 /* ─────────────────────────────────────────────
    Icons (inline SVG — zero dependencies)
@@ -131,7 +137,6 @@ export function Navbar() {
           <div className="flex items-center gap-2">
             {user ? (
               <div className="flex items-center gap-2.5">
-                {/* Avatar + name */}
                 {/* Avatar — clicável para perfil */}
                 <Link href="/conta" className="hidden sm:flex items-center gap-2" style={{ textDecoration: 'none' }}>
                   <div style={{
@@ -150,6 +155,7 @@ export function Navbar() {
                   </div>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{perfil?.username}</span>
                 </Link>
+                <NotificationButton />
                 <button onClick={handleLogout} className="btn-secondary" style={{ padding: '0.35rem 0.875rem', fontSize: '0.8rem' }}>
                   Sair
                 </button>
