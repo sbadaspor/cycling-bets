@@ -101,6 +101,10 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
   const preenchidos = posicoes.filter(c => c.trim() && nomesValidos.has(c.trim())).length
   const completo = preenchidos === numPos
 
+  // Ciclistas já selecionados nas posições (excluindo o próprio índice)
+  const usadosPorPosicao = (idx: number) =>
+    posicoes.filter((c, i) => i !== idx && c.trim() && nomesValidos.has(c.trim()))
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
       {/* Error */}
@@ -154,6 +158,7 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
                     value={ciclista}
                     onChange={val => handleCiclistaChange(idx, val)}
                     placeholder={`${idx + 1}.º ciclista`}
+                    usados={usadosPorPosicao(idx)}
                   />
                 </div>
               </div>
