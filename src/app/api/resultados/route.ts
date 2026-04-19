@@ -103,6 +103,30 @@ export async function POST(req: NextRequest) {
     .update({ status: 'finalizada', updated_at: new Date().toISOString() })
     .eq('id', prova_id)
 
+  // Enviar notificação a todos os subscritores
+  try {
+    const { data: prova } = await supabase
+      .from('provas')
+      .select('nome')
+      .eq('id', prova_id)
+      .single()
+
+    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': process.env.ADMIN_NOTIFY_KEY!,
+      },
+      body: JSON.stringify({
+        title: '🏆 Resultado disponível!',
+        body: `Os resultados de ${prova?.nome ?? 'uma prova'} já estão disponíveis.`,
+        url: '/apostas',
+      }),
+    })
+  } catch {
+    // Não falhar o endpoint se a notificação falhar
+  }
+
   return NextResponse.json({
     success: true,
     apostas_calculadas: apostasCalculadas,
