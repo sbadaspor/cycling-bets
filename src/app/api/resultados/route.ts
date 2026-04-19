@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { calcularPontos } from '@/lib/pontuacao'
+import { sendNotificationsToAll } from '@/lib/sendNotifications'
 import type { ResultadoFormData, CategoriaProvaTipo } from '@/types'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
 
-  // Verificar autenticação e admin
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
@@ -25,12 +25,11 @@ export async function POST(req: NextRequest) {
   const body: ResultadoFormData = await req.json()
   const { prova_id, resultado_top20, camisola_sprint, camisola_montanha, camisola_juventude } = body
 
-  // Validações
   if (!prova_id || !resultado_top20 || resultado_top20.length !== 20) {
     return NextResponse.json({ error: 'Dados inválidos. Necessário 20 ciclistas no resultado.' }, { status: 400 })
   }
 
-  // Obter categoria da prova
+  // Obter categoria e nome da prova
   const { data: prova } = await supabase
     .from('provas')
     .select('nome, categoria')
@@ -113,20 +112,13 @@ export async function POST(req: NextRequest) {
     .update({ status: 'finalizada', updated_at: new Date().toISOString() })
     .eq('id', prova_id)
 
-  // Enviar notificação a todos os subscritores
+  // Enviar notificação diretamente (sem fetch interno)
   try {
-    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/notify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-key': process.env.ADMIN_NOTIFY_KEY!,
-      },
-      body: JSON.stringify({
-        title: '🏆 Resultado disponível!',
-        body: `Os resultados de ${prova?.nome ?? 'uma prova'} já estão disponíveis.`,
-        url: '/apostas',
-      }),
-    })
+    await sendNotificationsToAll(
+      '🏆 Resultado disponível!',
+      `Os resultados de ${prova?.nome ?? 'uma prova'} já estão disponíveis.`,
+      '/apostas'
+    )
   } catch {
     // Não falhar o endpoint se a notificação falhar
   }
