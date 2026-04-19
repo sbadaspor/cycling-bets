@@ -1,11 +1,16 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Navbar } from '@/components/ui/Navbar'
 
 export const metadata: Metadata = {
   title: 'VeloApostas | Ciclismo entre Amigos',
   description: 'Sistema de apostas de ciclismo — Previsões Top-20 e classificações especiais',
-  viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -15,7 +20,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* PWA */}
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0a0a0f" />
-
         {/* iOS PWA */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
