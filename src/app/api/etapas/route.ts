@@ -300,6 +300,22 @@ export async function POST(req: NextRequest) {
 
   await sincronizarResultadoFinal(supabase, prova_id, userId)
 
+  // Notificacao automatica quando e inserido o resultado final
+  if (is_final) {
+    try {
+      const { sendNotificationsToAll } = await import('@/lib/sendNotifications')
+      const { data: provaInfo } = await supabase
+        .from('provas').select('nome').eq('id', prova_id).single()
+      await sendNotificationsToAll(
+        '🏁 Resultados disponíveis',
+        `Já podes ver a classificação final de ${provaInfo?.nome ?? 'uma prova'}.`,
+        `/provas/${prova_id}`,
+      )
+    } catch {
+      // Notificacoes sao best-effort — nao bloquear a resposta se falharem
+    }
+  }
+
   return NextResponse.json({
     success: true,
     apostas_calculadas: recalc.calculadas,
