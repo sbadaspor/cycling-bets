@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import type { CategoriaProvaTipo } from '@/types'
+import { tipoGrandeVolta } from '@/lib/provaUtils'
 
 // ── Types ─────────────────────────────────────────────
 export interface ResultadoApp {
@@ -29,14 +30,6 @@ interface Props {
 }
 
 // ── Helpers ────────────────────────────────────────────
-function tipoGrandeVolta(nome: string): 'giro' | 'tour' | 'vuelta' | null {
-  const n = nome.toLowerCase()
-  if (n.includes('giro'))   return 'giro'
-  if (n.includes('tour'))   return 'tour'
-  if (n.includes('vuelta')) return 'vuelta'
-  return null
-}
-
 function labelCategoria(tipo: CategoriaProvaTipo) {
   const map: Record<CategoriaProvaTipo, { emoji: string; label: string }> = {
     grande_volta: { emoji: '🏔️', label: 'Grande Volta' },
