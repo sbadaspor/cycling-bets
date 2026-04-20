@@ -7,6 +7,7 @@ import type {
   GrandesVoltasEntry,
   LeaderboardEntry,
   LeaderboardProva,
+  Perfil,
   Prova,
   ResultadoReal,
   VitoriaHistorica,
