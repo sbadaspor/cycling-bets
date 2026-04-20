@@ -4,6 +4,7 @@ import type {
   CategoriaProvaTipo,
   Ciclista,
   EtapaResultado,
+  GrandesVoltasEntry,
   LeaderboardEntry,
   LeaderboardProva,
   Prova,
@@ -11,6 +12,7 @@ import type {
   VitoriaHistorica,
   VitoriasJogador,
 } from '@/types'
+import { tipoGrandeVolta } from '@/lib/provaUtils'
 import { compararDesempate } from '@/lib/pontuacao'
 
 // ============================================================
@@ -303,76 +305,151 @@ export async function getVitoriasHistoricas(): Promise<VitoriaHistorica[]> {
   return data as VitoriaHistorica[]
 }
 
-export async function getVitoriasAgregadas(): Promise<VitoriasJogador[]> {
+// ============================================================
+// LEADERBOARDS DE TODAS AS PROVAS FINALIZADAS — uma única query
+// Substitui o padrão N+1 de chamar getLeaderboardProva() em loop.
+// ============================================================
+
+type ProvaInfo = Pick<Prova, 'id' | 'nome' | 'categoria' | 'data_fim'>
+
+/** Shape do JOIN prova:provas!inner(...) devolvido pelo Supabase */
+type ApostaComProvaJoin = Omit<Aposta, 'prova'> & {
+  perfil?: Perfil
+  prova?: ProvaInfo & { status: string }
+}
+
+export interface LeaderboardFinalizada {
+  prova: ProvaInfo
+  leaderboard: LeaderboardProva[]
+}
+
+export async function getAllLeaderboardsFinalizadas(): Promise<LeaderboardFinalizada[]> {
   const supabase = await createClient()
 
-  const { data: historicasData, error: histErr } = await supabase
-    .from('vitorias_historicas')
-    .select('*, perfil:perfis(*)')
+  // Uma só query em vez de N — busca todas as apostas de provas finalizadas
+  const { data, error } = await supabase
+    .from('apostas')
+    .select(`
+      *,
+      perfil:perfis(*),
+      prova:provas!inner(id, nome, categoria, data_fim, status)
+    `)
+    .eq('prova.status', 'finalizada')
+    .eq('calculada', true)
 
-  if (histErr) throw histErr
-  const historicas = historicasData as VitoriaHistorica[]
+  if (error) throw error
 
-  const { data: provasFinalizadas, error: pErr } = await supabase
-    .from('provas')
-    .select('id, categoria, nome')
-    .eq('status', 'finalizada')
-    .not('categoria', 'is', null)
+  // Agrupar por prova_id
+  const mapaProvas = new Map<string, { prova: ProvaInfo; apostas: ApostaComProvaJoin[] }>()
 
-  if (pErr) throw pErr
+  for (const aposta of (data as ApostaComProvaJoin[])) {
+    const provaJoin = aposta.prova
+    if (!provaJoin) continue
 
-  type Acumulador = Map<string, VitoriasJogador>
-  const acc: Acumulador = new Map()
-
-  function getOrInit(perfil: VitoriaHistorica['perfil']): VitoriasJogador | null {
-    if (!perfil) return null
-    let entry = acc.get(perfil.id)
-    if (!entry) {
-      entry = {
-        perfil,
-        total: 0,
-        porCategoria: {
-          grande_volta: 0,
-          prova_semana: 0,
-          monumento: 0,
-          prova_dia: 0,
+    if (!mapaProvas.has(aposta.prova_id)) {
+      mapaProvas.set(aposta.prova_id, {
+        prova: {
+          id: provaJoin.id,
+          nome: provaJoin.nome,
+          categoria: provaJoin.categoria,
+          data_fim: provaJoin.data_fim,
         },
-      }
-      acc.set(perfil.id, entry)
+        apostas: [],
+      })
     }
-    return entry
+    mapaProvas.get(aposta.prova_id)!.apostas.push(aposta)
   }
 
+  // Ordenar cada grupo e construir LeaderboardProva[]
+  return Array.from(mapaProvas.values()).map(({ prova, apostas }) => ({
+    prova,
+    leaderboard: (apostas as Aposta[])
+      .sort(compararDesempate)
+      .map((aposta, idx) => ({
+        rank: idx + 1,
+        perfil: aposta.perfil!,
+        aposta,
+      })),
+  }))
+}
+
+// ============================================================
+// VITÓRIAS AGREGADAS — usa getAllLeaderboardsFinalizadas()
+// Devolve tanto o ranking de vitórias como o breakdown de
+// Grandes Voltas (Giro/Tour/Vuelta) para a homepage, tudo
+// numa única passagem sobre os dados.
+// ============================================================
+
+export async function getDadosVitorias(): Promise<{
+  vitorias: VitoriasJogador[]
+  grandesVoltas: GrandesVoltasEntry[]
+}> {
+  const supabase = await createClient()
+
+  // Duas queries no total (antes eram N+1)
+  const [historicasData, leaderboardsData] = await Promise.all([
+    supabase.from('vitorias_historicas').select('*, perfil:perfis(*)'),
+    getAllLeaderboardsFinalizadas(),
+  ])
+
+  if (historicasData.error) throw historicasData.error
+  const historicas = historicasData.data as VitoriaHistorica[]
+
+  const accVitorias = new Map<string, VitoriasJogador>()
+  const accGV = new Map<string, GrandesVoltasEntry>()
+
+  const getOrInitVitorias = (perfil: NonNullable<VitoriaHistorica['perfil']>): VitoriasJogador => {
+    if (!accVitorias.has(perfil.id)) {
+      accVitorias.set(perfil.id, {
+        perfil,
+        total: 0,
+        porCategoria: { grande_volta: 0, prova_semana: 0, monumento: 0, prova_dia: 0 },
+      })
+    }
+    return accVitorias.get(perfil.id)!
+  }
+
+  const getOrInitGV = (userId: string): GrandesVoltasEntry => {
+    if (!accGV.has(userId)) {
+      accGV.set(userId, { userId, giro: 0, tour: 0, vuelta: 0 })
+    }
+    return accGV.get(userId)!
+  }
+
+  // Vitórias históricas pré-app
   for (const v of historicas) {
-    const entry = getOrInit(v.perfil)
-    if (!entry) continue
+    if (!v.perfil) continue
+    const entry = getOrInitVitorias(v.perfil)
     entry.total++
     entry.porCategoria[v.categoria]++
+
+    const gv = tipoGrandeVolta(v.nome_prova)
+    if (gv) getOrInitGV(v.perfil.id)[gv]++
   }
 
-  for (const p of (provasFinalizadas as { id: string; categoria: CategoriaProvaTipo; nome: string }[])) {
-    const lb = await getLeaderboardProva(p.id)
-    if (lb.length === 0) continue
-    const vencedor = lb[0]
+  // Vitórias da app (vencedor de cada prova finalizada)
+  for (const { prova, leaderboard } of leaderboardsData) {
+    if (leaderboard.length === 0 || !prova.categoria) continue
+    const vencedor = leaderboard[0]
     const perfil = vencedor.perfil
     if (!perfil) continue
-    let entry = acc.get(perfil.id)
-    if (!entry) {
-      entry = {
-        perfil,
-        total: 0,
-        porCategoria: {
-          grande_volta: 0,
-          prova_semana: 0,
-          monumento: 0,
-          prova_dia: 0,
-        },
-      }
-      acc.set(perfil.id, entry)
-    }
+
+    const entry = getOrInitVitorias(perfil)
     entry.total++
-    entry.porCategoria[p.categoria]++
+    entry.porCategoria[prova.categoria]++
+
+    const gv = tipoGrandeVolta(prova.nome)
+    if (gv) getOrInitGV(perfil.id)[gv]++
   }
 
-  return Array.from(acc.values()).sort((a, b) => b.total - a.total)
+  return {
+    vitorias: Array.from(accVitorias.values()).sort((a, b) => b.total - a.total),
+    grandesVoltas: Array.from(accGV.values()),
+  }
+}
+
+/** @deprecated Usar getDadosVitorias() que também devolve grandesVoltas sem queries extra */
+export async function getVitoriasAgregadas(): Promise<VitoriasJogador[]> {
+  const { vitorias } = await getDadosVitorias()
+  return vitorias
 }
