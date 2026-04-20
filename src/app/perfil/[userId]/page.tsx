@@ -1,28 +1,13 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { getLeaderboardGeral, getVitoriasAgregadas, getLeaderboardProva } from '@/lib/queries'
+import { getLeaderboardGeral, getVitoriasAgregadas, getAllLeaderboardsFinalizadas } from '@/lib/queries'
 import type { CategoriaProvaTipo } from '@/types'
+import { tipoGrandeVolta, ordemDentroAno } from '@/lib/provaUtils'
 import PerfilSections, { type EntradaPalmar, type ResultadoApp } from '@/components/perfil/PerfilSections'
 
 interface Props {
   params: Promise<{ userId: string }>
-}
-
-function tipoGrandeVolta(nome: string): 'giro' | 'tour' | 'vuelta' | null {
-  const n = nome.toLowerCase()
-  if (n.includes('giro'))   return 'giro'
-  if (n.includes('tour'))   return 'tour'
-  if (n.includes('vuelta')) return 'vuelta'
-  return null
-}
-
-function ordemDentroAno(nome: string): number {
-  const tipo = tipoGrandeVolta(nome)
-  if (tipo === 'vuelta') return 3
-  if (tipo === 'tour')   return 2
-  if (tipo === 'giro')   return 1
-  return 0
 }
 
 export default async function PerfilPage({ params }: Props) {
@@ -37,27 +22,22 @@ export default async function PerfilPage({ params }: Props) {
 
   if (error || !perfil) redirect('/')
 
-  const [leaderboard, todasVitorias] = await Promise.all([
+  // Três queries paralelas em vez de N+1
+  const [leaderboard, todasVitorias, todosLeaderboards] = await Promise.all([
     getLeaderboardGeral(),
     getVitoriasAgregadas(),
+    getAllLeaderboardsFinalizadas(),
   ])
 
   const statsGerais   = leaderboard.find(e => e.perfil.id === userId)
   const statsVitorias = todasVitorias.find(v => v.perfil.id === userId)
 
-  const jogosHistoricos = (perfil as any).jogos_historicos ?? 0
+  const jogosHistoricos = 0  // campo reservado para implementação futura
   const jogosApp        = statsGerais?.apostas.calculadas ?? 0
   const competicoes     = jogosHistoricos + jogosApp
   const vitorias        = statsVitorias?.total ?? 0
   const rankGeral       = statsGerais?.rank ?? null
   const pctVitoria      = competicoes > 0 ? Math.round((vitorias / competicoes) * 100) : 0
-
-  // ── Provas finalizadas ──────────────────────────────
-  const { data: provasFinalizadas } = await supabase
-    .from('provas')
-    .select('id, nome, data_fim, categoria')
-    .eq('status', 'finalizada')
-    .order('data_fim', { ascending: false })
 
   // ── Palmares ────────────────────────────────────────
   const { data: historicasRaw } = await supabase
@@ -73,14 +53,12 @@ export default async function PerfilPage({ params }: Props) {
     nome: string; ano: number; categoria: CategoriaProvaTipo; provaId: string
   }[] = []
 
-  // ── Os meus resultados (app) ────────────────────────
+  // ── Os meus resultados (app) — sem loop N+1 ─────────
   const resultadosApp: ResultadoApp[] = []
 
-  for (const prova of (provasFinalizadas ?? [])) {
-    const lb = await getLeaderboardProva(prova.id)
-    if (lb.length === 0) continue
+  for (const { prova, leaderboard: lb } of todosLeaderboards) {
+    if (lb.length === 0 || !prova.categoria) continue
 
-    // Vitória
     if (lb[0].perfil.id === userId) {
       provasGanhasApp.push({
         nome: prova.nome,
@@ -90,7 +68,6 @@ export default async function PerfilPage({ params }: Props) {
       })
     }
 
-    // Resultado deste user
     const meuLugar = lb.find(e => e.perfil.id === userId)
     if (meuLugar) {
       resultadosApp.push({
@@ -104,12 +81,10 @@ export default async function PerfilPage({ params }: Props) {
     }
   }
 
-  // Ordenar resultados: mais recente primeiro (Vuelta > Tour > Giro no mesmo ano)
   resultadosApp.sort((a, b) =>
     b.ano - a.ano || ordemDentroAno(b.nome) - ordemDentroAno(a.nome)
   )
 
-  // Palmares combinado e ordenado
   const palmares: EntradaPalmar[] = [
     ...historicas.map(h => ({
       key: h.id, nome: h.nome_prova, ano: h.ano,
@@ -123,16 +98,14 @@ export default async function PerfilPage({ params }: Props) {
     b.ano - a.ano || ordemDentroAno(b.nome) - ordemDentroAno(a.nome)
   )
 
-  // Giro / Tour / Vuelta wins
   const giroWins   = palmares.filter(e => tipoGrandeVolta(e.nome) === 'giro').length
   const tourWins   = palmares.filter(e => tipoGrandeVolta(e.nome) === 'tour').length
   const vueltaWins = palmares.filter(e => tipoGrandeVolta(e.nome) === 'vuelta').length
 
   const initial = perfil.username?.[0]?.toUpperCase() ?? '?'
-  const avatarUrlPerfil = (perfil as any).avatar_url as string | undefined
+  const avatarUrlPerfil = perfil.avatar_url
 
-  // Calcular idade e formatar data de nascimento
-  const dataNasc = (perfil as any).data_nascimento as string | null | undefined
+  const dataNasc = perfil.data_nascimento
   let idade: number | null = null
   let dataNascFormatada: string | null = null
   if (dataNasc) {
@@ -160,14 +133,12 @@ export default async function PerfilPage({ params }: Props) {
 
       {/* ── Profile card ───────────────────────────── */}
       <div className="card-flush animate-fade-up">
-        {/* Header */}
         <div style={{
           padding: '1.75rem 1.5rem',
           background: 'linear-gradient(135deg, rgba(200,244,0,0.08) 0%, rgba(200,244,0,0.02) 50%, transparent 100%)',
           borderBottom: '1px solid rgba(255,255,255,0.1)',
           display: 'flex', alignItems: 'center', gap: '1.25rem',
         }}>
-          {/* Avatar */}
           <div style={{
             width: 76, height: 76, borderRadius: '50%', flexShrink: 0,
             background: avatarUrlPerfil ? 'transparent' : 'rgba(200,244,0,0.12)',
@@ -183,7 +154,6 @@ export default async function PerfilPage({ params }: Props) {
             }
           </div>
 
-          {/* Info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             {rankGeral && (
               <p style={{
@@ -219,7 +189,6 @@ export default async function PerfilPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Stats: Competições · Vitórias · % Vitória */}
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
           borderBottom: '1px solid rgba(255,255,255,0.1)',
@@ -250,7 +219,6 @@ export default async function PerfilPage({ params }: Props) {
           ))}
         </div>
 
-        {/* Giro · Tour · Vuelta */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
           {[
             { label: 'Giro',   wins: giroWins,   emoji: '🇮🇹' },
@@ -282,12 +250,10 @@ export default async function PerfilPage({ params }: Props) {
         </div>
       </div>
 
-      {/* ── Accordion sections (client) ────────────── */}
       <div className="animate-fade-up delay-1">
         <PerfilSections resultados={resultadosApp} palmares={palmares} />
       </div>
 
-      {/* ── Points breakdown ───────────────────────── */}
       {statsGerais && (
         <div className="card-flush animate-fade-up delay-2">
           <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
