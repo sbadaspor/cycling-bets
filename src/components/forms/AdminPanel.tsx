@@ -44,10 +44,7 @@ export function AdminPanel({ provas }: Props) {
     try {
       const res = await fetch('/api/notify', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-admin-key': process.env.NEXT_PUBLIC_ADMIN_NOTIFY_KEY ?? '',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: titulo, body: mensagem, url }),
       })
       const data = await res.json()
