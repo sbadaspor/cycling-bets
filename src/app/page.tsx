@@ -18,6 +18,18 @@ export default async function HomePage() {
   const provas = await getProvas()
   const provasCategorizadas = provas.map(categorizarProva)
   const provasADecorrer = provasCategorizadas.filter(p => p.estado === 'a_decorrer')
+  const provasFuturas = provasCategorizadas.filter(p => p.estado === 'futura')
+
+  // Provas onde o utilizador já tem aposta (para mostrar indicador na lista)
+  let provasComAposta = new Set<string>()
+  if (user && provasFuturas.length > 0) {
+    const { data: apostasExistentes } = await supabase
+      .from('apostas')
+      .select('prova_id')
+      .eq('user_id', user.id)
+      .in('prova_id', provasFuturas.map(p => p.id))
+    provasComAposta = new Set((apostasExistentes ?? []).map((a: { prova_id: string }) => a.prova_id))
+  }
 
   const dadosADecorrer = await Promise.all(
     provasADecorrer.map(async (prova) => {
@@ -106,7 +118,7 @@ export default async function HomePage() {
               Próximas Provas
             </h2>
           </div>
-          <ProvasList provas={provas} userId={user?.id} />
+          <ProvasList provas={provas} userId={user?.id} provasComAposta={provasComAposta} />
         </div>
       </div>
     </div>
