@@ -4,21 +4,12 @@ import {
   getApostasProvaComPerfil,
   getUltimaEtapa,
   getUltimaProvaFinalizada,
-  getVitoriasAgregadas,
-  getLeaderboardProva,
+  getDadosVitorias,
 } from '@/lib/queries'
 import { categorizarProva } from '@/lib/provaStatus'
 import { ProvasList } from '@/components/dashboard/ProvasList'
 import ClassificacaoProvaTable from '@/components/dashboard/ClassificacaoProvaTable'
 import VitoriasJogadores from '@/components/dashboard/VitoriasJogadores'
-
-function tipoGrandeVolta(nome: string): 'giro' | 'tour' | 'vuelta' | null {
-  const n = nome.toLowerCase()
-  if (n.includes('giro'))   return 'giro'
-  if (n.includes('tour'))   return 'tour'
-  if (n.includes('vuelta')) return 'vuelta'
-  return null
-}
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -55,46 +46,9 @@ export default async function HomePage() {
     }
   }
 
-  const vitorias = await getVitoriasAgregadas()
-
-  // ── Grandes Voltas breakdown ──────────────────────────
-  // Mapa: perfil.id → { giro, tour, vuelta }
-  const gvMap = new Map<string, { giro: number; tour: number; vuelta: number }>()
-
-  const ensureEntry = (uid: string) => {
-    if (!gvMap.has(uid)) gvMap.set(uid, { giro: 0, tour: 0, vuelta: 0 })
-    return gvMap.get(uid)!
-  }
-
-  // 1. Histórico pré-app — join com perfis para obter o mesmo ID que VitoriasJogador usa
-  const { data: historicasRaw } = await supabase
-    .from('vitorias_historicas')
-    .select('nome_prova, perfil:perfis!user_id(id)')
-
-  for (const h of (historicasRaw ?? [])) {
-    const perfilId = (h.perfil as any)?.id as string | undefined
-    if (!perfilId) continue
-    const tipo = tipoGrandeVolta(h.nome_prova)
-    if (!tipo) continue
-    ensureEntry(perfilId)[tipo]++
-  }
-
-  // 2. Provas da app finalizadas — vencedor do leaderboard
-  const { data: provasFinalizadas } = await supabase
-    .from('provas')
-    .select('id, nome, categoria')
-    .eq('status', 'finalizada')
-
-  for (const prova of (provasFinalizadas ?? [])) {
-    const tipo = tipoGrandeVolta(prova.nome)
-    if (!tipo) continue
-    const lb = await getLeaderboardProva(prova.id)
-    if (lb.length > 0 && lb[0].perfil?.id) {
-      ensureEntry(lb[0].perfil.id)[tipo]++
-    }
-  }
-
-  const grandesVoltas = Array.from(gvMap.entries()).map(([userId, v]) => ({ userId, ...v }))
+  // getDadosVitorias() substitui getVitoriasAgregadas() + o loop com getLeaderboardProva()
+  // que estava aqui em baixo. Eram N+1+N queries, agora são 2.
+  const { vitorias, grandesVoltas } = await getDadosVitorias()
 
   return (
     <div>
