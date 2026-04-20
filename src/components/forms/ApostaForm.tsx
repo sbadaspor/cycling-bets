@@ -44,6 +44,17 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
     })
   }
 
+  // Troca dois ciclistas de posição
+  const moverCiclista = (idx: number, direcao: 'cima' | 'baixo') => {
+    const outro = direcao === 'cima' ? idx - 1 : idx + 1
+    if (outro < 0 || outro >= numPos) return
+    setPosicoes(prev => {
+      const novo = [...prev]
+      ;[novo[idx], novo[outro]] = [novo[outro], novo[idx]]
+      return novo
+    })
+  }
+
   const handleSubmit = async () => {
     setErro(null)
     const vazios = posicoes.filter(c => !c.trim())
@@ -54,9 +65,9 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
     const duplicados = nomes.filter((n, idx) => nomes.indexOf(n) !== idx)
     if (duplicados.length > 0) { setErro('Há ciclistas repetidos na tua aposta.'); return }
     if (config.temCamisolas) {
-      const camisolasPreenchidas = [camisolaSprint, camisolaMontanha, camisolaJuventude].map(c => c.trim()).filter(c => c.length > 0)
-      const camisolasInvalidas = camisolasPreenchidas.filter(c => !nomesValidos.has(c))
-      if (camisolasInvalidas.length > 0) { setErro('Ciclista de camisola não está na startlist.'); return }
+      const preenchidas = [camisolaSprint, camisolaMontanha, camisolaJuventude].map(c => c.trim()).filter(Boolean)
+      const invalidas = preenchidas.filter(c => !nomesValidos.has(c))
+      if (invalidas.length > 0) { setErro('Ciclista de camisola não está na startlist.'); return }
     }
 
     const apostasTop20 = [...posicoes]
@@ -91,7 +102,7 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
       <div className="card animate-fade-up" style={{ textAlign: 'center', padding: '3.5rem 1.25rem' }}>
         <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎉</div>
         <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 800, color: 'var(--lime)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
-          Aposta submetida!
+          {apostaExistente ? 'Aposta atualizada!' : 'Aposta submetida!'}
         </h2>
         <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>A redirecionar para o dashboard...</p>
       </div>
@@ -100,14 +111,12 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
 
   const preenchidos = posicoes.filter(c => c.trim() && nomesValidos.has(c.trim())).length
   const completo = preenchidos === numPos
-
-  // Ciclistas já selecionados nas posições (excluindo o próprio índice)
   const usadosPorPosicao = (idx: number) =>
     posicoes.filter((c, i) => i !== idx && c.trim() && nomesValidos.has(c.trim()))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-      {/* Error */}
+
       {erro && (
         <div className="animate-fade-up" style={{
           background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)',
@@ -118,7 +127,6 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
         </div>
       )}
 
-      {/* TOP N positions */}
       <div className="card-flush animate-fade-up">
         <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, rgba(200,244,0,0.05) 0%, transparent 60%)' }}>
           <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>
@@ -126,7 +134,7 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
           </p>
           <h2 className="section-title" style={{ fontSize: '1.2rem', marginBottom: '0.2rem' }}>Top {numPos}</h2>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
-            Ordena do 1.º ao {numPos}.º — escreve e escolhe da lista
+            Escreve e escolhe da lista · usa ↑↓ para reordenar
           </p>
         </div>
 
@@ -137,8 +145,39 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
             const invalido = ciclista.trim() && !nomesValidos.has(ciclista.trim())
 
             return (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                {/* Position number */}
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+
+                {/* Botões ↑↓ */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                  <button
+                    onClick={() => moverCiclista(idx, 'cima')}
+                    disabled={idx === 0}
+                    title="Mover para cima"
+                    style={{
+                      width: 22, height: 22, padding: 0, border: 'none', borderRadius: 4,
+                      background: idx === 0 ? 'transparent' : 'var(--surface-2)',
+                      color: idx === 0 ? 'transparent' : 'var(--text-dim)',
+                      cursor: idx === 0 ? 'default' : 'pointer',
+                      fontSize: '0.7rem', lineHeight: 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >▲</button>
+                  <button
+                    onClick={() => moverCiclista(idx, 'baixo')}
+                    disabled={idx === numPos - 1}
+                    title="Mover para baixo"
+                    style={{
+                      width: 22, height: 22, padding: 0, border: 'none', borderRadius: 4,
+                      background: idx === numPos - 1 ? 'transparent' : 'var(--surface-2)',
+                      color: idx === numPos - 1 ? 'transparent' : 'var(--text-dim)',
+                      cursor: idx === numPos - 1 ? 'default' : 'pointer',
+                      fontSize: '0.7rem', lineHeight: 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >▼</button>
+                </div>
+
+                {/* Número de posição */}
                 <div style={{
                   width: 32, height: 32, borderRadius: '0.5rem', flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -152,6 +191,7 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
                 }}>
                   {idx + 1}
                 </div>
+
                 <div style={{ flex: 1 }}>
                   <CyclistAutocomplete
                     ciclistas={ciclistas}
@@ -167,7 +207,6 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
         </div>
       </div>
 
-      {/* Jerseys */}
       {config.temCamisolas && (
         <div className="card-flush animate-fade-up delay-1">
           <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)' }}>
@@ -177,11 +216,10 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
             <h2 className="section-title" style={{ fontSize: '1.2rem', marginBottom: '0.2rem' }}>Camisolas</h2>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>Opcional — 1 ponto por acerto</p>
           </div>
-
           <div style={{ padding: '0.875rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             {[
-              { label: '🟢 Camisola Sprint', value: camisolaSprint, set: setCamisolaSprint },
-              { label: '🔴 Camisola Montanha', value: camisolaMontanha, set: setCamisolaMontanha },
+              { label: '🟢 Camisola Sprint',    value: camisolaSprint,    set: setCamisolaSprint },
+              { label: '🔴 Camisola Montanha',  value: camisolaMontanha,  set: setCamisolaMontanha },
               { label: '⚪ Camisola Juventude', value: camisolaJuventude, set: setCamisolaJuventude },
             ].map(({ label, value, set }) => (
               <div key={label}>
@@ -195,16 +233,13 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
         </div>
       )}
 
-      {/* Progress summary */}
+      {/* Progresso */}
       <div className="card animate-fade-up delay-2" style={{ padding: '1rem 1.25rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.625rem' }}>
           <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Progresso
           </span>
-          <span style={{
-            fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1rem', fontWeight: 800,
-            color: completo ? 'var(--lime)' : 'var(--text-dim)',
-          }}>
+          <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1rem', fontWeight: 800, color: completo ? 'var(--lime)' : 'var(--text-dim)' }}>
             {preenchidos}/{numPos}
           </span>
         </div>
@@ -220,7 +255,6 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
         </div>
       </div>
 
-      {/* Submit */}
       <button
         onClick={handleSubmit}
         disabled={loading}
