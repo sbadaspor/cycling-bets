@@ -106,13 +106,13 @@ export default function VitoriasJogadores({ vitorias, grandesVoltas = [] }: Prop
                 }
               </div>
 
-              {/* Medalha + username */}
+              {/* Medalha + nome completo (fallback para username) */}
               <span style={{
                 fontSize: '0.88rem', fontWeight: 600,
                 color: idx === 0 ? 'var(--lime)' : '#e0e0f0',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                {medals[idx] ?? ''} {v.perfil.username}
+                {medals[idx] ?? ''} {v.perfil.full_name || v.perfil.username}
               </span>
             </Link>
 
