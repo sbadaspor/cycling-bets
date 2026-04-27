@@ -10,7 +10,7 @@ interface Props {
   params: Promise<{ userId: string }>
 }
 
-const COMPETICOES_PRE_APP = 9
+const COMPETICOES_PRE_APP = 10
 
 export default async function PerfilPage({ params }: Props) {
   const { userId } = await params
