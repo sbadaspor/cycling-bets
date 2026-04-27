@@ -22,7 +22,6 @@ export default async function PerfilPage({ params }: Props) {
 
   if (error || !perfil) redirect('/')
 
-  // Três queries paralelas em vez de N+1
   const [leaderboard, todasVitorias, todosLeaderboards] = await Promise.all([
     getLeaderboardGeral(),
     getVitoriasAgregadas(),
@@ -31,13 +30,6 @@ export default async function PerfilPage({ params }: Props) {
 
   const statsGerais   = leaderboard.find(e => e.perfil.id === userId)
   const statsVitorias = todasVitorias.find(v => v.perfil.id === userId)
-
-  const jogosHistoricos = 0  // campo reservado para implementação futura
-  const jogosApp        = statsGerais?.apostas.calculadas ?? 0
-  const competicoes     = jogosHistoricos + jogosApp
-  const vitorias        = statsVitorias?.total ?? 0
-  const rankGeral       = statsGerais?.rank ?? null
-  const pctVitoria      = competicoes > 0 ? Math.round((vitorias / competicoes) * 100) : 0
 
   // ── Palmares ────────────────────────────────────────
   const { data: historicasRaw } = await supabase
@@ -48,6 +40,13 @@ export default async function PerfilPage({ params }: Props) {
   const historicas = (historicasRaw ?? []) as {
     id: string; ano: number; nome_prova: string; categoria: CategoriaProvaTipo
   }[]
+
+  const jogosHistoricos = historicas.length  // cada vitória histórica = 1 competição ganha
+  const jogosApp        = statsGerais?.apostas.calculadas ?? 0
+  const competicoes     = jogosHistoricos + jogosApp
+  const vitorias        = statsVitorias?.total ?? 0
+  const rankGeral       = statsGerais?.rank ?? null
+  const pctVitoria      = competicoes > 0 ? Math.round((vitorias / competicoes) * 100) : 0
 
   const provasGanhasApp: {
     nome: string; ano: number; categoria: CategoriaProvaTipo; provaId: string
