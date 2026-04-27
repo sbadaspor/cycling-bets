@@ -10,6 +10,8 @@ interface Props {
   params: Promise<{ userId: string }>
 }
 
+const COMPETICOES_PRE_APP = 9
+
 export default async function PerfilPage({ params }: Props) {
   const { userId } = await params
   const supabase = await createClient()
@@ -41,12 +43,11 @@ export default async function PerfilPage({ params }: Props) {
     id: string; ano: number; nome_prova: string; categoria: CategoriaProvaTipo
   }[]
 
-  const jogosHistoricos = historicas.length  // cada vitória histórica = 1 competição ganha
-  const jogosApp        = statsGerais?.apostas.calculadas ?? 0
-  const competicoes     = jogosHistoricos + jogosApp
-  const vitorias        = statsVitorias?.total ?? 0
-  const rankGeral       = statsGerais?.rank ?? null
-  const pctVitoria      = competicoes > 0 ? Math.round((vitorias / competicoes) * 100) : 0
+  const jogosApp    = statsGerais?.apostas.calculadas ?? 0
+  const competicoes = COMPETICOES_PRE_APP + jogosApp
+  const vitorias    = statsVitorias?.total ?? 0
+  const rankGeral   = statsGerais?.rank ?? null
+  const pctVitoria  = competicoes > 0 ? Math.round((vitorias / competicoes) * 100) : 0
 
   const provasGanhasApp: {
     nome: string; ano: number; categoria: CategoriaProvaTipo; provaId: string
