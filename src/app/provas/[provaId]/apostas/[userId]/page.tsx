@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProva, getApostaPorUser, getApostasProvaComPerfil, getUltimaEtapa } from '@/lib/queries'
 import { categorizarProva } from '@/lib/provaStatus'
 import ApostaDetalhe from '@/components/dashboard/ApostaDetalhe'
+import type { Aposta, EtapaResultado } from '@/types'
 
 interface Props {
   params: Promise<{ provaId: string; userId: string }>
@@ -21,11 +22,20 @@ export default async function ApostaDetalhePage({ params }: Props) {
   const cat = categorizarProva(prova)
   if (userId !== user.id && cat.estado === 'futura') redirect('/apostas')
 
-  const [aposta, todasApostas, ultimaEtapa] = await Promise.all([
-    getApostaPorUser(provaId, userId),
-    getApostasProvaComPerfil(provaId),
-    getUltimaEtapa(provaId),
-  ])
+  let aposta: Aposta | null = null
+  let todasApostas: Aposta[] = []
+  let ultimaEtapa: EtapaResultado | null = null
+
+  try {
+    ;[aposta, todasApostas, ultimaEtapa] = await Promise.all([
+      getApostaPorUser(provaId, userId),
+      getApostasProvaComPerfil(provaId),
+      getUltimaEtapa(provaId),
+    ])
+  } catch (err) {
+    console.error('[ApostaDetalhePage] Erro ao carregar dados:', err)
+    try { aposta = await getApostaPorUser(provaId, userId) } catch { /* ignorar */ }
+  }
 
   if (!aposta) {
     return (
@@ -42,8 +52,10 @@ export default async function ApostaDetalhePage({ params }: Props) {
 
   const ehProvaUser = userId === user.id
   const podeEditar = ehProvaUser && cat.estado === 'futura'
-  const apostasOrdenadas = [...todasApostas].sort((a, b) => b.pontos_total - a.pontos_total)
-  const ranking = apostasOrdenadas.findIndex(a => a.id === aposta.id) + 1
+  const apostasOrdenadas = Array.isArray(todasApostas)
+    ? [...todasApostas].sort((a, b) => b.pontos_total - a.pontos_total)
+    : []
+  const ranking = apostasOrdenadas.findIndex(a => a.id === aposta!.id) + 1
   const outrasApostas = cat.estado !== 'futura' ? todasApostas.filter(a => a.user_id !== userId) : []
   const medals = ['🥇', '🥈', '🥉']
 
