@@ -16,13 +16,13 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
   const numPos = config.numPosicoes
   const isSimples = categoria === 'monumento' || categoria === 'prova_dia'
 
-  // Para grande volta: top alto = 10, top baixo = 20
-  // Para simples: só top-10
   const topAlto = 10
   const topBaixo = 20
 
   const resultado = ultimaEtapa?.classificacao_geral_top20 ?? Array(20).fill('')
-  const adicionais = ultimaEtapa?.posicoes_adicionais ?? []
+  const adicionais: { posicao: number; nome: string }[] = Array.isArray(ultimaEtapa?.posicoes_adicionais)
+    ? (ultimaEtapa!.posicoes_adicionais as { posicao: number; nome: string }[])
+    : []
   const camisolasReais = {
     sprint: ultimaEtapa?.camisola_sprint ?? '',
     montanha: ultimaEtapa?.camisola_montanha ?? '',
@@ -54,12 +54,10 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
 
     if (pr !== null) {
       if (isSimples) {
-        // Monumento / prova de um dia
         const exato = posApostada === pr
         pts = exato ? 2 : 1
         color = exato ? 'rgba(68,204,136,0.15)' : 'rgba(68,204,136,0.08)'
       } else {
-        // Grande volta / prova de semana
         const apostadoNoAlto = posApostada <= topAlto
         const apostadoNoBaixo = posApostada > topAlto && posApostada <= topBaixo
         const realNoAlto = pr <= topAlto
@@ -75,7 +73,6 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
           pts = 1
           color = 'rgba(255,200,0,0.06)'
         }
-        // apostadoNoAlto && realNoBaixo → 0 pts
       }
     }
     return { pts, posRealVal: pr, color }
@@ -88,7 +85,6 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
     textAlign: 'center' as const,
   })
 
-  // Labels das colunas de pontuação
   const col1Label = isSimples ? 'Acertos' : `Top 1-${topAlto}`
   const col1Sub = isSimples ? '1pt + 1pt exato' : '3 pts/acerto'
   const col2Label = isSimples ? null : `Top ${topAlto + 1}-${topBaixo}`
@@ -176,7 +172,6 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
                 borderBottom: idx < numPos - 1 ? '1px solid var(--border)' : 'none',
                 background: ultimaEtapa ? color : undefined,
               }}>
-                {/* Pos */}
                 <div style={{
                   width: 28, height: 28, flexShrink: 0, borderRadius: '0.4rem',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -187,7 +182,6 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
                   color: isSimples || isAlto ? 'var(--lime)' : 'var(--text-dim)',
                 }}>{posApostada}</div>
 
-                {/* Name + result badge */}
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.88rem', color: apostado ? 'var(--text)' : 'var(--text-sub)' }}>
                     {apostado || '—'}
@@ -208,7 +202,6 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
                   )}
                 </div>
 
-                {/* Points */}
                 <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 28 }}>
                   {ultimaEtapa ? (
                     <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1rem', fontWeight: 800, color: pts > 0 ? 'var(--lime)' : 'var(--text-sub)' }}>
