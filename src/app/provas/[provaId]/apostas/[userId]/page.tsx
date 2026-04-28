@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getProva, getApostaPorUser, getApostasProvaComPerfil, getUltimaEtapa } from '@/lib/queries'
 import { categorizarProva } from '@/lib/provaStatus'
 import ApostaDetalhe from '@/components/dashboard/ApostaDetalhe'
+import ComparacaoApostas from '@/components/dashboard/ComparacaoApostas'
 import type { Aposta, EtapaResultado } from '@/types'
 
 interface Props {
@@ -56,8 +57,9 @@ export default async function ApostaDetalhePage({ params }: Props) {
     ? [...todasApostas].sort((a, b) => b.pontos_total - a.pontos_total)
     : []
   const ranking = apostasOrdenadas.findIndex(a => a.id === aposta!.id) + 1
-  const outrasApostas = cat.estado !== 'futura' ? todasApostas.filter(a => a.user_id !== userId) : []
-  const medals = ['🥇', '🥈', '🥉']
+  const outrasApostas = cat.estado !== 'futura'
+    ? todasApostas.filter(a => a.user_id !== userId)
+    : []
 
   const estadoBadge = cat.estado === 'a_decorrer'
     ? { label: '● Ao vivo', cls: 'badge-aberta' }
@@ -89,33 +91,12 @@ export default async function ApostaDetalhePage({ params }: Props) {
       <ApostaDetalhe aposta={aposta} ultimaEtapa={ultimaEtapa} ehProvaUser={ehProvaUser} />
 
       {outrasApostas.length > 0 && (
-        <div className="card-flush animate-fade-up">
-          <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)' }}>
-            <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>👥 Comparar</p>
-            <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Outras Apostas</h2>
-          </div>
-          <div>
-            {outrasApostas.sort((a, b) => b.pontos_total - a.pontos_total).map((a, i) => {
-              const rank = apostasOrdenadas.findIndex(x => x.id === a.id) + 1
-              return (
-                <Link key={a.id} href={`/provas/${provaId}/apostas/${a.user_id}`} style={{
-                  display: 'flex', alignItems: 'center', gap: '0.75rem',
-                  padding: '0.75rem 1.25rem',
-                  borderBottom: i < outrasApostas.length - 1 ? '1px solid var(--border)' : 'none',
-                  textDecoration: 'none',
-                }}>
-                  <span style={{ fontSize: rank <= 3 ? '1rem' : '0.78rem', fontWeight: 800, color: rank <= 3 ? 'var(--lime)' : 'var(--text-dim)', fontFamily: 'Barlow Condensed, sans-serif', width: 28, textAlign: 'center', flexShrink: 0 }}>
-                    {medals[rank - 1] ?? `#${rank}`}
-                  </span>
-                  <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>{a.perfil?.username}</span>
-                  <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.15rem', fontWeight: 800, color: rank <= 3 ? 'var(--lime)' : 'var(--text-dim)' }}>
-                    {a.pontos_total} <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)' }}>pts</span>
-                  </span>
-                </Link>
-              )
-            })}
-          </div>
-        </div>
+        <ComparacaoApostas
+          apostaPrincipal={aposta}
+          outrasApostas={outrasApostas}
+          ultimaEtapa={ultimaEtapa}
+          userId={user.id}
+        />
       )}
     </div>
   )
