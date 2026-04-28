@@ -27,6 +27,9 @@ export default async function ProvaPage({ params }: Props) {
   }
   const st = statusMap[prova.status] ?? statusMap['finalizada']
 
+  // Encontrar a aposta do user atual no leaderboard para o link "Comparar todos"
+  const minhaEntrada = user ? leaderboard.find(e => e.perfil.id === user.id) : null
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
@@ -48,7 +51,23 @@ export default async function ProvaPage({ params }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: '1.25rem' }}>
         {/* Leaderboard */}
         <div className="lg:col-span-3">
-          <h2 className="section-title animate-fade-up" style={{ fontSize: '1.15rem', marginBottom: '0.85rem' }}>Classificação</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+            <h2 className="section-title animate-fade-up" style={{ fontSize: '1.15rem' }}>Classificação</h2>
+            {minhaEntrada && leaderboard.length > 1 && (
+              <Link
+                href={`/provas/${provaId}/apostas/${user!.id}?comparar=todos`}
+                style={{
+                  padding: '0.4rem 0.875rem', borderRadius: '0.625rem',
+                  fontSize: '0.75rem', fontWeight: 700,
+                  border: '1px solid var(--lime)', background: 'rgba(200,244,0,0.1)',
+                  color: 'var(--lime)', textDecoration: 'none',
+                  fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
+                ⚡ Comparar todos
+              </Link>
+            )}
+          </div>
 
           {leaderboard.length === 0 ? (
             <div className="card animate-fade-up delay-1" style={{ textAlign: 'center', padding: '3rem 1.25rem' }}>
