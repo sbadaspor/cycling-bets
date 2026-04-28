@@ -102,11 +102,8 @@ export default async function ApostaDetalhePage({ params }: Props) {
                   display: 'flex', alignItems: 'center', gap: '0.75rem',
                   padding: '0.75rem 1.25rem',
                   borderBottom: i < outrasApostas.length - 1 ? '1px solid var(--border)' : 'none',
-                  textDecoration: 'none', transition: 'background 0.12s',
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '')}
-                >
+                  textDecoration: 'none',
+                }}>
                   <span style={{ fontSize: rank <= 3 ? '1rem' : '0.78rem', fontWeight: 800, color: rank <= 3 ? 'var(--lime)' : 'var(--text-dim)', fontFamily: 'Barlow Condensed, sans-serif', width: 28, textAlign: 'center', flexShrink: 0 }}>
                     {medals[rank - 1] ?? `#${rank}`}
                   </span>
