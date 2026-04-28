@@ -9,10 +9,12 @@ import type { Aposta, EtapaResultado } from '@/types'
 
 interface Props {
   params: Promise<{ provaId: string; userId: string }>
+  searchParams: Promise<{ comparar?: string }>
 }
 
-export default async function ApostaDetalhePage({ params }: Props) {
+export default async function ApostaDetalhePage({ params, searchParams }: Props) {
   const { provaId, userId } = await params
+  const { comparar } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
@@ -67,11 +69,13 @@ export default async function ApostaDetalhePage({ params }: Props) {
     ? { label: '⏳ Futura', cls: 'badge-fechada' }
     : { label: '✓ Finalizada', cls: 'badge-finalizada' }
 
+  const initialModo = comparar === 'todos' ? 'comparar_todos' : 'lista'
+
   return (
     <div className="max-w-2xl mx-auto" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
       <div className="animate-fade-up">
-        <Link href="/apostas" style={{ fontSize: '0.78rem', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.75rem', textDecoration: 'none' }}>
-          ← Apostas
+        <Link href={`/provas/${provaId}`} style={{ fontSize: '0.78rem', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.75rem', textDecoration: 'none' }}>
+          ← Classificação
         </Link>
         <h1 className="section-title" style={{ fontSize: '1.75rem', marginBottom: '0.4rem' }}>{prova.nome}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap', marginBottom: '0.625rem' }}>
@@ -96,6 +100,7 @@ export default async function ApostaDetalhePage({ params }: Props) {
           outrasApostas={outrasApostas}
           ultimaEtapa={ultimaEtapa}
           userId={user.id}
+          initialModo={initialModo}
         />
       )}
     </div>
