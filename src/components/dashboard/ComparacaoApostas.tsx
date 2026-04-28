@@ -9,12 +9,13 @@ interface Props {
   outrasApostas: Aposta[]
   ultimaEtapa: EtapaResultado | null
   userId: string
+  initialModo?: 'lista' | 'comparar_todos'
 }
 
 type Modo = 'lista' | 'comparar_um' | 'comparar_todos'
 
-export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ultimaEtapa, userId }: Props) {
-  const [modo, setModo] = useState<Modo>('lista')
+export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ultimaEtapa, userId, initialModo = 'lista' }: Props) {
+  const [modo, setModo] = useState<Modo>(initialModo)
   const [apostaSelecionada, setApostaSelecionada] = useState<Aposta | null>(null)
 
   const categoria = apostaPrincipal.prova?.categoria
@@ -76,23 +77,16 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
 
     return (
       <div className="card-flush" style={{ overflowX: 'auto' }}>
-        {/* Cabeçalho */}
         <div style={{ display: 'grid', gridTemplateColumns: gridCols, borderBottom: '2px solid var(--border)', background: 'var(--surface-2)', minWidth: cols === 3 ? 420 : 280 }}>
           <div style={{ padding: '0.55rem 0.25rem', fontSize: '0.65rem', color: 'var(--text-sub)', textAlign: 'center' }}>#</div>
           {apostas.map((a) => (
-            <div key={a.id} style={{
-              ...thStyle,
-              color: a.user_id === userId ? 'var(--lime)' : 'var(--text)',
-            }}>
+            <div key={a.id} style={{ ...thStyle, color: a.user_id === userId ? 'var(--lime)' : 'var(--text)' }}>
               {a.perfil?.username ?? '—'}{a.user_id === userId ? ' 👤' : ''}
             </div>
           ))}
-          {ultimaEtapa && (
-            <div style={{ ...thStyle, color: 'var(--lime)' }}>Real</div>
-          )}
+          {ultimaEtapa && <div style={{ ...thStyle, color: 'var(--lime)' }}>Real</div>}
         </div>
 
-        {/* Linhas de picks */}
         <div style={{ minWidth: cols === 3 ? 420 : 280 }}>
           {Array.from({ length: numPos }).map((_, idx) => {
             const posApostada = idx + 1
@@ -103,15 +97,13 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
 
             return (
               <div key={idx} style={{
-                display: 'grid',
-                gridTemplateColumns: gridCols,
+                display: 'grid', gridTemplateColumns: gridCols,
                 borderBottom: idx < numPos - 1 ? '1px solid var(--border)' : 'none',
                 background: todosIguais && picks[0] ? 'rgba(68,136,255,0.04)' : undefined,
               }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.68rem', fontWeight: 800,
-                  fontFamily: 'Barlow Condensed, sans-serif',
+                  fontSize: '0.68rem', fontWeight: 800, fontFamily: 'Barlow Condensed, sans-serif',
                   color: isSimples || isAlto ? 'var(--lime)' : 'var(--text-sub)',
                   padding: '0.45rem 0.25rem',
                 }}>
@@ -122,8 +114,7 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
                   const bg = getPontosCor(nome, posApostada)
                   return (
                     <div key={a.id} style={{
-                      padding: '0.45rem 0.5rem',
-                      fontSize: '0.78rem',
+                      padding: '0.45rem 0.5rem', fontSize: '0.78rem',
                       color: nome ? 'var(--text)' : 'var(--text-sub)',
                       borderLeft: '1px solid var(--border)',
                       background: bg || undefined,
@@ -135,8 +126,7 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
                 })}
                 {ultimaEtapa && (
                   <div style={{
-                    padding: '0.45rem 0.4rem',
-                    fontSize: '0.72rem', fontWeight: 600, color: 'var(--lime)',
+                    padding: '0.45rem 0.4rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--lime)',
                     borderLeft: '1px solid var(--border)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
@@ -148,7 +138,6 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
           })}
         </div>
 
-        {/* Camisolas */}
         {config.temCamisolas && (
           <div style={{ borderTop: '2px solid var(--border)', minWidth: cols === 3 ? 420 : 280 }}>
             {camisolaKeys.map(({ key, label }) => {
@@ -189,21 +178,16 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
           </div>
         )}
 
-        {/* Totais */}
         <div style={{
           display: 'grid', gridTemplateColumns: gridCols,
           borderTop: '2px solid var(--border)',
           background: 'rgba(200,244,0,0.04)',
           minWidth: cols === 3 ? 420 : 280,
         }}>
-          <div style={{ padding: '0.7rem 0.25rem', fontSize: '0.6rem', color: 'var(--text-sub)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            pts
-          </div>
+          <div style={{ padding: '0.7rem 0.25rem', fontSize: '0.6rem', color: 'var(--text-sub)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>pts</div>
           {apostas.map((a) => (
             <div key={a.id} style={{ padding: '0.7rem 0.5rem', borderLeft: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.6rem', fontWeight: 900, color: 'var(--lime)' }}>
-                {a.pontos_total}
-              </span>
+              <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.6rem', fontWeight: 900, color: 'var(--lime)' }}>{a.pontos_total}</span>
               <span style={{ fontSize: '0.6rem', color: 'var(--text-sub)' }}>pts</span>
             </div>
           ))}
@@ -213,7 +197,6 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
     )
   }
 
-  // Lista de outras apostas
   if (modo === 'lista') {
     const todasOrdenadas = [apostaPrincipal, ...outrasApostas].sort((a, b) => b.pontos_total - a.pontos_total)
 
@@ -259,9 +242,7 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
                 <span style={{ fontSize: rank <= 3 ? '1rem' : '0.78rem', fontWeight: 800, color: rank <= 3 ? 'var(--lime)' : 'var(--text-dim)', fontFamily: 'Barlow Condensed, sans-serif', width: 28, textAlign: 'center', flexShrink: 0 }}>
                   {medals[rank - 1] ?? `#${rank}`}
                 </span>
-                <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)', textAlign: 'left' }}>
-                  {a.perfil?.username}
-                </span>
+                <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)', textAlign: 'left' }}>{a.perfil?.username}</span>
                 <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', flexShrink: 0 }}>comparar →</span>
                 <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.15rem', fontWeight: 800, color: rank <= 3 ? 'var(--lime)' : 'var(--text-dim)', flexShrink: 0 }}>
                   {a.pontos_total} <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)' }}>pts</span>
@@ -274,7 +255,6 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
     )
   }
 
-  // Modo comparação
   const apostasParaComparar = modo === 'comparar_todos'
     ? [apostaPrincipal, ...outrasApostas].sort((a) => a.user_id === userId ? -1 : 1)
     : [apostaPrincipal, apostaSelecionada!]
