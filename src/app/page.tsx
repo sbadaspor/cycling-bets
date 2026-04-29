@@ -43,8 +43,8 @@ export default async function HomePage() {
         return { prova, apostas, ultimaEtapa }
       })
     ),
-    getHomepageStats(),
-    getActivityFeed(6),
+    getHomepageStats().catch(() => ({ totalApostas: 0, totalJogadores: 0, provasAtivas: 0 })),
+    getActivityFeed(6).catch(() => []),
   ])
 
   let dadosUltimaFinalizada: {
