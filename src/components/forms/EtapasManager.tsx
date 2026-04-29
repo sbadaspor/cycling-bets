@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Ciclista, EtapaResultado, PosicaoAdicional, Prova } from '@/types'
 import CyclistAutocomplete from './CyclistAutocomplete'
 import { getConfigCategoria } from '@/lib/categoriaConfig'
+import ImageResultsParser from './ImageResultsParser'
 
 interface Props {
   prova: Prova
@@ -23,6 +24,7 @@ export default function EtapasManager({ prova }: Props) {
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [modo, setModo] = useState<'lista' | 'editar'>('lista')
+  const [modoInput, setModoInput] = useState<'manual' | 'imagem'>('manual')
 
   // Formulário
   const [editando, setEditando] = useState<EtapaResultado | null>(null)
@@ -83,6 +85,7 @@ export default function EtapasManager({ prova }: Props) {
     setIsFinal(!config.multiEtapas)
     setErro(null)
     setSucesso(null)
+    setModoInput('manual')
     setModo('editar')
   }
 
@@ -108,6 +111,7 @@ export default function EtapasManager({ prova }: Props) {
     setPreenchidoDeAnterior(false)
     setErro(null)
     setSucesso(null)
+    setModoInput('manual')
     setModo('editar')
   }
 
@@ -405,8 +409,65 @@ export default function EtapasManager({ prova }: Props) {
                 />
               </div>
             </div>
+
+            {/* Toggle manual / imagem */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
+              <button
+                onClick={() => setModoInput('manual')}
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.625rem',
+                  border: `1px solid ${modoInput === 'manual' ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
+                  background: modoInput === 'manual' ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
+                  color: modoInput === 'manual' ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
+                  fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
+                }}
+              >
+                ✍️ Inserir manualmente
+              </button>
+              <button
+                onClick={() => setModoInput('imagem')}
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.625rem',
+                  border: `1px solid ${modoInput === 'imagem' ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
+                  background: modoInput === 'imagem' ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
+                  color: modoInput === 'imagem' ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
+                  fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
+                }}
+              >
+                📸 Importar da foto
+              </button>
+            </div>
           </div>
 
+          {/* Modo imagem */}
+          {modoInput === 'imagem' && (
+            <div className="card">
+              <ImageResultsParser
+                provaId={provaId}
+                ciclistas={ciclistas}
+                temCamisolas={config.temCamisolas}
+                numPosicoes={numPos}
+                onAplicar={({ posicoes, camisola_sprint, camisola_montanha, camisola_juventude }) => {
+                  // Preencher o formulário com os dados da imagem
+                  const novas = Array(numPos).fill('')
+                  posicoes.slice(0, numPos).forEach((nome, i) => { novas[i] = nome })
+                  setPosicoes(novas)
+                  setCamisolaSprint(camisola_sprint)
+                  setCamisolaMontanha(camisola_montanha)
+                  setCamisolaJuventude(camisola_juventude)
+                  setModoInput('manual') // mudar para manual para o admin confirmar
+                }}
+                onCancelar={() => setModoInput('manual')}
+              />
+            </div>
+          )}
+
+          {/* Modo imagem → quando aplicar, muda para manual automaticamente */}
+
+          {/* Formulário manual */}
+          {modoInput === 'manual' && (<>
           {preenchidoDeAnterior && (
             <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm text-blue-200 flex items-center justify-between gap-3">
               <span>
@@ -598,6 +659,7 @@ export default function EtapasManager({ prova }: Props) {
                 ? '💾 Atualizar'
                 : '➕ Guardar'}
           </button>
+          </>)} {/* fim modoInput === 'manual' */}
         </>
       )}
     </div>
