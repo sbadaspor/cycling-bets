@@ -46,6 +46,14 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
   resultado.slice(0, numPos).forEach((c, i) => { if (c?.trim()) posReal.set(c.trim().toLowerCase(), i + 1) })
   adicionais.forEach(a => { if (a.nome?.trim()) posReal.set(a.nome.trim().toLowerCase(), a.posicao) })
 
+  // Mapa de nome → tempo (disponível quando inserido via foto)
+  const tempoReal = new Map<string, string>()
+  adicionais.forEach(a => {
+    if (a.nome?.trim() && (a as { posicao: number; nome: string; tempo?: string }).tempo) {
+      tempoReal.set(a.nome.trim().toLowerCase(), (a as { posicao: number; nome: string; tempo?: string }).tempo!)
+    }
+  })
+
   function dadosLinha(apostado: string, posApostada: number) {
     if (!ultimaEtapa || !apostado.trim()) return { pts: 0, posRealVal: null as number | null, color: 'var(--surface-2)' }
     const pr = posReal.get(apostado.trim().toLowerCase()) ?? null
@@ -200,6 +208,16 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-sub)', background: 'var(--surface-2)', padding: '0.1rem 0.45rem', borderRadius: '999px' }}>fora</span>
                     )
                   )}
+                  {/* Tempo ao líder */}
+                  {ultimaEtapa && apostado && pr !== null && (() => {
+                    const tempo = tempoReal.get(apostado.trim().toLowerCase())
+                    if (!tempo) return null
+                    return (
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-sub)', background: 'var(--surface-2)', padding: '0.1rem 0.45rem', borderRadius: '999px', border: '1px solid var(--border)', fontVariantNumeric: 'tabular-nums' }}>
+                        {pr === 1 ? '🥇' : `+${tempo}`}
+                      </span>
+                    )
+                  })()}
                 </div>
 
                 <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 28 }}>
