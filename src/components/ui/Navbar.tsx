@@ -79,6 +79,7 @@ export function Navbar() {
   const bottomLinks = [
     { href: '/', label: 'Início', icon: <IconHome /> },
     ...(user ? [{ href: '/apostas', label: 'Apostas', icon: <IconBet /> }] : []),
+    { href: '/regras', label: 'Regras', icon: '📖' },
     ...(perfil?.is_admin ? [{ href: '/admin', label: 'Admin', icon: <IconAdmin /> }] : []),
   ]
 
