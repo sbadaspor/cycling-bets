@@ -45,6 +45,7 @@ export interface EtapaResultado {
   data_etapa: string
   classificacao_geral_top20: string[]
   posicoes_adicionais: PosicaoAdicional[]
+  tempos_classificacao: Record<string, string>   // nome_lowercase → "0:06"
   camisola_sprint?: string
   camisola_montanha?: string
   camisola_juventude?: string
