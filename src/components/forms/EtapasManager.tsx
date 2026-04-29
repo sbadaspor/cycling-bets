@@ -25,6 +25,7 @@ export default function EtapasManager({ prova }: Props) {
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [modo, setModo] = useState<'lista' | 'editar'>('lista')
   const [modoInput, setModoInput] = useState<'manual' | 'imagem'>('manual')
+  const [temposMap, setTemposMap] = useState<Record<string, string>>({})
 
   // Formulário
   const [editando, setEditando] = useState<EtapaResultado | null>(null)
@@ -111,6 +112,7 @@ export default function EtapasManager({ prova }: Props) {
     setPreenchidoDeAnterior(false)
     setErro(null)
     setSucesso(null)
+    setTemposMap((e.tempos_classificacao as Record<string, string>) ?? {})
     setModoInput('manual')
     setModo('editar')
   }
@@ -153,7 +155,7 @@ export default function EtapasManager({ prova }: Props) {
       return
     }
 
-    // Validar adicionais
+    // Validar adicionais (posições opcionais além do top)
     for (const a of adicionais) {
       if (!a.nome.trim()) {
         setErro('Há posições adicionais sem ciclista escolhido.')
@@ -211,7 +213,8 @@ export default function EtapasManager({ prova }: Props) {
           numero_etapa: numeroEtapa,
           data_etapa: dataEtapa,
           classificacao_geral_top20: classificacao,
-          posicoes_adicionais: adicionais.map(a => ({ posicao: a.posicao, nome: a.nome.trim() })),
+          posicoes_adicionais: adicionais.map(a => ({ posicao: a.posicao, nome: a.nome.trim(), tempo: (a as { posicao: number; nome: string; tempo?: string }).tempo ?? '' })),
+          tempos_classificacao: temposMap,
           camisola_sprint: config.temCamisolas ? camisolaSprint.trim() : '',
           camisola_montanha: config.temCamisolas ? camisolaMontanha.trim() : '',
           camisola_juventude: config.temCamisolas ? camisolaJuventude.trim() : '',
@@ -236,8 +239,10 @@ export default function EtapasManager({ prova }: Props) {
   }
 
   function adicionarPosicao() {
-    const proximaPos = adicionais.length > 0
-      ? Math.max(...adicionais.map(a => a.posicao)) + 1
+    // Só contar adicionais com posição > numPos para calcular a próxima (ignora os "ocultos" com tempos)
+    const visiveis = adicionais.filter(a => a.posicao > numPos)
+    const proximaPos = visiveis.length > 0
+      ? Math.max(...visiveis.map(a => a.posicao)) + 1
       : numPos + 1
     setAdicionais([...adicionais, { posicao: proximaPos, nome: '' }])
   }
@@ -450,22 +455,27 @@ export default function EtapasManager({ prova }: Props) {
                 temCamisolas={config.temCamisolas}
                 numPosicoes={numPos}
                 onAplicar={({ posicoes, camisola_sprint, camisola_montanha, camisola_juventude, todosOsCiclistas }) => {
-                  // Preencher o Top N
+                  // Top N → preencher o formulário normal
                   const novas = Array(numPos).fill('')
                   posicoes.slice(0, numPos).forEach((nome, i) => { novas[i] = nome })
                   setPosicoes(novas)
                   setCamisolaSprint(camisola_sprint)
                   setCamisolaMontanha(camisola_montanha)
                   setCamisolaJuventude(camisola_juventude)
-                  // Guardar TODOS os ciclistas (incluindo os do top) com os seus tempos em adicionais
-                  // Isto permite mostrar tempos na vista do utilizador
-                  if (todosOsCiclistas && todosOsCiclistas.length > 0) {
-                    setAdicionais(todosOsCiclistas.map(c => ({
-                      posicao: c.posicao,
-                      nome: c.nome,
-                      tempo: c.tempo,
-                    })))
-                  }
+
+                  // Adicionais: apenas posições ALÉM do top (para display no site)
+                  const adicionaisFromImage = todosOsCiclistas
+                    .filter(c => c.posicao > numPos)
+                    .map(c => ({ posicao: c.posicao, nome: c.nome, tempo: c.tempo }))
+                  setAdicionais(adicionaisFromImage)
+
+                  // Mapa de tempos: TODOS os ciclistas (guardado separadamente na DB)
+                  const mapa: Record<string, string> = {}
+                  todosOsCiclistas.forEach(c => {
+                    if (c.nome?.trim()) mapa[c.nome.trim().toLowerCase()] = c.tempo ?? ''
+                  })
+                  setTemposMap(mapa)
+
                   setModoInput('manual')
                 }}
                 onCancelar={() => setModoInput('manual')}
@@ -553,44 +563,66 @@ export default function EtapasManager({ prova }: Props) {
               Adiciona posições para lá do {numPos} (ex.: {numPos + 3}º, {numPos + 10}º) para os jogadores verem onde estão os ciclistas que apostaram. Não dão pontos extra — é só informação.
             </p>
 
-            {adicionais.length === 0 ? (
-              <p className="text-zinc-500 text-sm text-center py-6">
-                Sem posições adicionais. Clica em <strong>Adicionar</strong> para começares.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {adicionais.map((a, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <input
-                      type="number"
-                      min={numPos + 1}
-                      className="input-field w-24 flex-shrink-0"
-                      value={a.posicao}
-                      onChange={e => atualizarPosicao(idx, 'posicao', parseInt(e.target.value) || (numPos + 1))}
-                      placeholder="Pos"
-                    />
-                    <div className="flex-1">
-                      <CyclistAutocomplete
-                        ciclistas={ciclistas}
-                        value={a.nome}
-                        onChange={(v) => atualizarPosicao(idx, 'nome', v)}
-                        placeholder="Ciclista"
-                        usados={[
-                          ...posicoes,
-                          ...adicionais.filter((_, i) => i !== idx).map(x => x.nome),
-                        ]}
-                      />
+            {/* Quando importado via foto, os tempos dos top N são guardados nos bastidores.
+                Aqui só mostramos as posições além do top N. */}
+            {(() => {
+              const temClassif = adicionais.some(a => a.posicao <= numPos)
+              const visiveis = adicionais.filter(a => a.posicao > numPos)
+              const totalOcultos = adicionais.filter(a => a.posicao <= numPos).length
+
+              return (
+                <>
+                  {temClassif && totalOcultos > 0 && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', marginBottom: '0.75rem' }}>
+                      ℹ️ {totalOcultos} posições com tempos guardadas da foto (não visíveis aqui — são usadas para mostrar os tempos aos jogadores).
                     </div>
-                    <button
-                      onClick={() => removerPosicao(idx)}
-                      className="px-3 py-2 text-sm rounded-md bg-red-900/40 text-red-300 hover:bg-red-900/60 flex-shrink-0"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+                  )}
+                  {visiveis.length === 0 ? (
+                    <p className="text-zinc-500 text-sm text-center py-6">
+                      {temClassif
+                        ? 'Todos os tempos foram importados da foto. Podes adicionar posições extra se quiseres.'
+                        : <>Sem posições adicionais. Clica em <strong>Adicionar</strong> para começares.</>}
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {visiveis.map((a) => {
+                        const idx = adicionais.indexOf(a)
+                        return (
+                          <div key={idx} className="flex items-start gap-2">
+                            <input
+                              type="number"
+                              min={numPos + 1}
+                              className="input-field w-24 flex-shrink-0"
+                              value={a.posicao}
+                              onChange={e => atualizarPosicao(idx, 'posicao', parseInt(e.target.value) || (numPos + 1))}
+                              placeholder="Pos"
+                            />
+                            <div className="flex-1">
+                              <CyclistAutocomplete
+                                ciclistas={ciclistas}
+                                value={a.nome}
+                                onChange={(v) => atualizarPosicao(idx, 'nome', v)}
+                                placeholder="Ciclista"
+                                usados={[
+                                  ...posicoes,
+                                  ...adicionais.filter((_, i) => i !== idx).map(x => x.nome),
+                                ]}
+                              />
+                            </div>
+                            <button
+                              onClick={() => removerPosicao(idx)}
+                              className="px-3 py-2 text-sm rounded-md bg-red-900/40 text-red-300 hover:bg-red-900/60 flex-shrink-0"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
+              )
+            })()}
           </div>
 
           {/* Camisolas (só para categorias que têm) */}
