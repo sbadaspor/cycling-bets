@@ -13,7 +13,6 @@ import { ProvasList } from '@/components/dashboard/ProvasList'
 import ClassificacaoProvaTable from '@/components/dashboard/ClassificacaoProvaTable'
 import VitoriasJogadores from '@/components/dashboard/VitoriasJogadores'
 import ActivityFeed from '@/components/dashboard/ActivityFeed'
-import ActivityFeed from '@/components/dashboard/ActivityFeed'
 
 export default async function HomePage() {
   const supabase = await createClient()
