@@ -5,22 +5,30 @@ import {
   getUltimaEtapa,
   getUltimaProvaFinalizada,
   getDadosVitorias,
+  getHomepageStats,
+  getActivityFeed,
 } from '@/lib/queries'
 import { categorizarProva } from '@/lib/provaStatus'
 import { ProvasList } from '@/components/dashboard/ProvasList'
 import ClassificacaoProvaTable from '@/components/dashboard/ClassificacaoProvaTable'
 import VitoriasJogadores from '@/components/dashboard/VitoriasJogadores'
+import StatsBar from '@/components/dashboard/StatsBar'
+import ActivityFeed from '@/components/dashboard/ActivityFeed'
 
 export default async function HomePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const provas = await getProvas()
+  const [provas, stats, activityFeed] = await Promise.all([
+    getProvas(),
+    getHomepageStats(),
+    getActivityFeed(6),
+  ])
+
   const provasCategorizadas = provas.map(categorizarProva)
   const provasADecorrer = provasCategorizadas.filter(p => p.estado === 'a_decorrer')
   const provasFuturas = provasCategorizadas.filter(p => p.estado === 'futura')
 
-  // Provas onde o utilizador já tem aposta (para mostrar indicador na lista)
   let provasComAposta = new Set<string>()
   if (user && provasFuturas.length > 0) {
     const { data: apostasExistentes } = await supabase
@@ -58,14 +66,12 @@ export default async function HomePage() {
     }
   }
 
-  // getDadosVitorias() substitui getVitoriasAgregadas() + o loop com getLeaderboardProva()
-  // que estava aqui em baixo. Eram N+1+N queries, agora são 2.
   const { vitorias, grandesVoltas } = await getDadosVitorias()
 
   return (
     <div>
-      {/* ── Hero header ───────────────────────── */}
-      <div className="animate-fade-up" style={{ marginBottom: '1.5rem' }}>
+      {/* Hero */}
+      <div className="animate-fade-up" style={{ marginBottom: '1.25rem' }}>
         <p style={{ fontSize: '0.7rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.3rem' }}>
           ⚡ Ciclismo entre amigos
         </p>
@@ -82,7 +88,14 @@ export default async function HomePage() {
         </p>
       </div>
 
-      {/* ── Main layout ───────────────────────── */}
+      {/* Stats bar */}
+      <StatsBar
+        totalApostas={stats.totalApostas}
+        totalJogadores={stats.totalJogadores}
+        provasAtivas={stats.provasAtivas}
+      />
+
+      {/* Main layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: '1.25rem' }}>
 
         <div className="lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -112,13 +125,15 @@ export default async function HomePage() {
           <VitoriasJogadores vitorias={vitorias} grandesVoltas={grandesVoltas} />
         </div>
 
-        <div>
-          <div style={{ marginBottom: '0.85rem' }}>
-            <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.15rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div>
+            <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.15rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.85rem' }}>
               Próximas Provas
             </h2>
+            <ProvasList provas={provas} userId={user?.id} provasComAposta={provasComAposta} />
           </div>
-          <ProvasList provas={provas} userId={user?.id} provasComAposta={provasComAposta} />
+
+          <ActivityFeed items={activityFeed} />
         </div>
       </div>
     </div>
