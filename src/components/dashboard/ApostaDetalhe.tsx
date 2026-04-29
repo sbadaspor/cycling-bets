@@ -46,12 +46,11 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
   resultado.slice(0, numPos).forEach((c, i) => { if (c?.trim()) posReal.set(c.trim().toLowerCase(), i + 1) })
   adicionais.forEach(a => { if (a.nome?.trim()) posReal.set(a.nome.trim().toLowerCase(), a.posicao) })
 
-  // Mapa de nome → tempo (disponível quando inserido via foto)
+  // Mapa de nome → tempo (da coluna dedicada tempos_classificacao)
   const tempoReal = new Map<string, string>()
-  adicionais.forEach(a => {
-    if (a.nome?.trim() && (a as { posicao: number; nome: string; tempo?: string }).tempo) {
-      tempoReal.set(a.nome.trim().toLowerCase(), (a as { posicao: number; nome: string; tempo?: string }).tempo!)
-    }
+  const temposClassificacao = (ultimaEtapa?.tempos_classificacao ?? {}) as Record<string, string>
+  Object.entries(temposClassificacao).forEach(([nome, tempo]) => {
+    if (tempo) tempoReal.set(nome.toLowerCase(), tempo)
   })
 
   function dadosLinha(apostado: string, posApostada: number) {
