@@ -449,15 +449,24 @@ export default function EtapasManager({ prova }: Props) {
                 ciclistas={ciclistas}
                 temCamisolas={config.temCamisolas}
                 numPosicoes={numPos}
-                onAplicar={({ posicoes, camisola_sprint, camisola_montanha, camisola_juventude }) => {
-                  // Preencher o formulário com os dados da imagem
+                onAplicar={({ posicoes, camisola_sprint, camisola_montanha, camisola_juventude, todosOsCiclistas }) => {
+                  // Preencher o Top N
                   const novas = Array(numPos).fill('')
                   posicoes.slice(0, numPos).forEach((nome, i) => { novas[i] = nome })
                   setPosicoes(novas)
                   setCamisolaSprint(camisola_sprint)
                   setCamisolaMontanha(camisola_montanha)
                   setCamisolaJuventude(camisola_juventude)
-                  setModoInput('manual') // mudar para manual para o admin confirmar
+                  // Guardar TODOS os ciclistas (incluindo os do top) com os seus tempos em adicionais
+                  // Isto permite mostrar tempos na vista do utilizador
+                  if (todosOsCiclistas && todosOsCiclistas.length > 0) {
+                    setAdicionais(todosOsCiclistas.map(c => ({
+                      posicao: c.posicao,
+                      nome: c.nome,
+                      tempo: c.tempo,
+                    })))
+                  }
+                  setModoInput('manual')
                 }}
                 onCancelar={() => setModoInput('manual')}
               />
