@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Fundo escuro -->
+  <rect width="32" height="32" rx="8" fill="#0a0a0f"/>
+  <!-- Roda exterior -->
+  <circle cx="16" cy="16" r="11" stroke="#c8f400" stroke-width="2.5"/>
+  <!-- Raios -->
+  <line x1="16" y1="5" x2="16" y2="16" stroke="#c8f400" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="16" y1="16" x2="25.5" y2="21.5" stroke="#c8f400" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="16" y1="16" x2="6.5" y2="21.5" stroke="#c8f400" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Centro -->
+  <circle cx="16" cy="16" r="2.5" fill="#c8f400"/>
+</svg>
