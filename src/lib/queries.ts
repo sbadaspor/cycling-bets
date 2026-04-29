@@ -443,3 +443,62 @@ export async function getVitoriasAgregadas(): Promise<VitoriasJogador[]> {
   const { vitorias } = await getDadosVitorias()
   return vitorias
 }
+
+// ============================================================
+// HOMEPAGE — STATS + FEED
+// ============================================================
+
+export async function getHomepageStats() {
+  const supabase = await createClient()
+
+  const [
+    { count: totalApostas },
+    { count: totalJogadores },
+    { count: provasAtivas },
+  ] = await Promise.all([
+    supabase.from('apostas').select('*', { count: 'exact', head: true }),
+    supabase.from('perfis').select('*', { count: 'exact', head: true }),
+    supabase.from('provas').select('*', { count: 'exact', head: true }).eq('status', 'a_decorrer'),
+  ])
+
+  return {
+    totalApostas: totalApostas ?? 0,
+    totalJogadores: totalJogadores ?? 0,
+    provasAtivas: provasAtivas ?? 0,
+  }
+}
+
+export interface ActivityItem {
+  userId: string
+  username: string
+  avatarUrl: string | null
+  provaId: string
+  provaNome: string
+  createdAt: string
+}
+
+export async function getActivityFeed(limit = 6): Promise<ActivityItem[]> {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('apostas')
+    .select('user_id, created_at, prova:provas(id, nome), perfil:perfis(username, avatar_url)')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  return ((data ?? []) as unknown as Array<{
+    user_id: string
+    created_at: string
+    prova: { id: string; nome: string } | null
+    perfil: { username: string; avatar_url: string | null } | null
+  }>)
+    .filter(r => r.prova && r.perfil)
+    .map(r => ({
+      userId: r.user_id,
+      username: r.perfil!.username,
+      avatarUrl: r.perfil!.avatar_url,
+      provaId: r.prova!.id,
+      provaNome: r.prova!.nome,
+      createdAt: r.created_at,
+    }))
+}
