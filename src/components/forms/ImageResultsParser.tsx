@@ -68,7 +68,21 @@ export default function ImageResultsParser({ provaId, ciclistas, temCamisolas, n
       const res = await fetch('/api/admin/parse-image', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) { setErro(data.error ?? 'Erro ao processar a imagem.'); return }
-      setResultado(data); setEditableCyclists(data.cyclists)
+
+      // Propagar tempos reais: "s.t." herda o último tempo conhecido
+      let ultimoTempo = '0:00'
+      const cyclistsComTempos = (data.cyclists as ParsedCyclist[]).map(c => {
+        const tempoLimpo = c.tempo?.trim().toLowerCase()
+        if (!tempoLimpo || tempoLimpo === 's.t.' || tempoLimpo === 'st' || tempoLimpo === '') {
+          return { ...c, tempo: ultimoTempo }
+        }
+        ultimoTempo = c.tempo
+        return c
+      })
+
+      const resultadoCorrigido = { ...data, cyclists: cyclistsComTempos }
+      setResultado(resultadoCorrigido)
+      setEditableCyclists(cyclistsComTempos)
       setEditableSprint(data.camisola_sprint ?? ''); setEditableMontanha(data.camisola_montanha ?? ''); setEditableJuventude(data.camisola_juventude ?? '')
     } catch { setErro('Erro de rede. Tenta novamente.') }
     finally { setLoading(false) }
