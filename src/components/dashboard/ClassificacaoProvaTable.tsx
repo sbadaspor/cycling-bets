@@ -1,5 +1,7 @@
 'use client'
 
+'use client'
+
 import Link from 'next/link'
 import type { Aposta, EtapaResultado, Prova } from '@/types'
 import { compararDesempate } from '@/lib/pontuacao'
@@ -73,25 +75,39 @@ export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, t
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                 onMouseLeave={e => (e.currentTarget.style.background = '')}
               >
-                {/* Rank */}
+                {/* Medalha / Rank */}
                 <div style={{
-                  width: 32, height: 32, borderRadius: '0.5rem', flexShrink: 0,
-                  background: isTop3 ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
-                  border: `1px solid ${isTop3 ? 'rgba(200,244,0,0.2)' : 'var(--border)'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: isTop3 ? '1rem' : '0.75rem',
-                  fontWeight: 700, color: isTop3 ? 'var(--lime)' : 'var(--text-dim)',
+                  width: 22, flexShrink: 0, textAlign: 'center',
+                  fontSize: isTop3 ? '1rem' : '0.72rem',
+                  fontWeight: 700,
+                  color: isTop3 ? 'var(--lime)' : 'var(--text-sub)',
                   fontFamily: 'Barlow Condensed, sans-serif',
                 }}>
                   {medals[idx] ?? rank}
                 </div>
 
-                {/* Name */}
-                <span style={{
-                  flex: 1, fontSize: '0.95rem', fontWeight: 500,
-                  color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                {/* Avatar */}
+                <div style={{
+                  width: 38, height: 38, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+                  background: a.perfil?.avatar_url ? 'transparent' : 'rgba(200,244,0,0.12)',
+                  border: `1.5px solid ${isTop3 ? 'rgba(200,244,0,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.8rem', fontWeight: 900, color: 'var(--lime)',
+                  fontFamily: 'Barlow Condensed, sans-serif',
                 }}>
-                  {a.perfil?.username ?? 'utilizador'}
+                  {a.perfil?.avatar_url
+                    ? <img src={a.perfil.avatar_url} alt={a.perfil.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : (a.perfil?.username?.[0] ?? '?').toUpperCase()
+                  }
+                </div>
+
+                {/* Nome */}
+                <span style={{
+                  flex: 1, fontSize: '0.95rem', fontWeight: isTop3 ? 600 : 500,
+                  color: isTop3 ? 'var(--lime)' : 'var(--text)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {a.perfil?.full_name || a.perfil?.username || 'utilizador'}
                 </span>
 
                 {/* Points breakdown — hidden on very small screens */}
