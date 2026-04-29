@@ -48,7 +48,7 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
 
   // Mapa de nome → tempo (da coluna dedicada tempos_classificacao)
   const tempoReal = new Map<string, string>()
-  const temposClassificacao = (ultimaEtapa?.tempos_classificacao ?? {}) as Record<string, string>
+  const temposClassificacao = (((ultimaEtapa as unknown as Record<string, unknown>)?.tempos_classificacao) ?? {}) as Record<string, string>
   Object.entries(temposClassificacao).forEach(([nome, tempo]) => {
     if (tempo) tempoReal.set(nome.toLowerCase(), tempo)
   })
@@ -212,7 +212,14 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
                     const tempo = tempoReal.get(apostado.trim().toLowerCase())
                     if (!tempo) return null
                     return (
-                      <span style={{ fontSize: '0.68rem', color: 'var(--text-sub)', background: 'var(--surface-2)', padding: '0.1rem 0.45rem', borderRadius: '999px', border: '1px solid var(--border)', fontVariantNumeric: 'tabular-nums' }}>
+                      <span style={{
+                        fontSize: '0.68rem', fontWeight: 700,
+                        color: '#ff8c00',
+                        background: 'rgba(255,140,0,0.12)',
+                        padding: '0.1rem 0.45rem', borderRadius: '999px',
+                        border: '1px solid rgba(255,140,0,0.3)',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
                         {pr === 1 ? '🥇' : `+${tempo}`}
                       </span>
                     )
