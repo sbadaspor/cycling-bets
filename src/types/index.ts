@@ -36,6 +36,7 @@ export interface Ciclista {
 export interface PosicaoAdicional {
   posicao: number
   nome: string
+  tempo?: string   // diferença para o líder, ex: "0:06", "4:02", "s.t."
 }
 export interface EtapaResultado {
   id: string
