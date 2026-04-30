@@ -54,9 +54,17 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // Apagar entrada existente (se houver) e reinserir
+  await supabase
+    .from('apostas_historicas')
+    .delete()
+    .eq('user_id', user_id)
+    .eq('ano', ano)
+    .eq('nome_prova', nome_prova)
+
   const { data, error } = await supabase
     .from('apostas_historicas')
-    .upsert({
+    .insert({
       user_id, ano, nome_prova, categoria, posicao_grupo: posicao_grupo ?? null,
       pontos_total, apostas_top: apostas_top ?? [],
       resultado_real_top: resultado_real_top ?? [],
@@ -67,7 +75,7 @@ export async function POST(req: NextRequest) {
       camisola_montanha_real: camisola_montanha_real || null,
       camisola_juventude_apostada: camisola_juventude_apostada || null,
       camisola_juventude_real: camisola_juventude_real || null,
-    }, { onConflict: 'user_id,ano,nome_prova' })
+    })
     .select()
     .single()
 
