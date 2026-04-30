@@ -17,6 +17,7 @@ export default async function AdminPage() {
   if (!perfil?.is_admin) redirect('/')
 
   const provas = await getProvas()
+  const { data: perfis } = await supabase.from('perfis').select('id, username, avatar_url, full_name').order('username')
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -26,7 +27,7 @@ export default async function AdminPage() {
           Gere provas, startlists e classificações por etapa.
         </p>
       </div>
-      <AdminPanel provas={provas} />
+      <AdminPanel provas={provas} perfis={perfis ?? []} />
     </div>
   )
 }
