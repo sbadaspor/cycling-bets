@@ -31,6 +31,7 @@ interface ProvaInfo {
 
 interface JogadorData {
   user_id: string
+  original_id?: string  // ID da entrada existente (para editar sem duplicar)
   apostas_top: string[]
   posicao_grupo: string
   camisola_sprint_apostada: string
@@ -142,6 +143,7 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...j,
+            original_id: j.original_id ?? null,
             ...prova,
             posicao_grupo: j.posicao_grupo ? parseInt(j.posicao_grupo) : null,
           }),
@@ -157,8 +159,14 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
   }
 
   async function apagar(id: string) {
-    if (!confirm('Apagar esta entrada?')) return
+    if (!confirm('Apagar esta entrada do jogador?')) return
     await fetch('/api/admin/apostas-historicas', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    await carregarHistorico()
+  }
+
+  async function apagarProva(ano: number, nome_prova: string) {
+    if (!confirm(`Apagar TODA a prova "${nome_prova} ${ano}" para todos os jogadores?\n\nEsta ação não pode ser desfeita.`)) return
+    await fetch('/api/admin/apostas-historicas', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ano, nome_prova }) })
     await carregarHistorico()
   }
 
@@ -186,6 +194,7 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
       if (!entrada) return defaultJogador(perf.id)
       return {
         user_id: perf.id,
+        original_id: entrada.id,  // guardar ID para apagar exactamente esta entrada
         apostas_top: entrada.apostas_top ?? Array(10).fill(''),
         posicao_grupo: entrada.posicao_grupo ? String(entrada.posicao_grupo) : '',
         camisola_sprint_apostada: entrada.camisola_sprint_apostada ?? '',
@@ -253,6 +262,12 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
                     style={{ padding: '0.3rem 0.75rem', background: 'rgba(200,244,0,0.1)', border: '1px solid rgba(200,244,0,0.25)', borderRadius: '0.5rem', color: 'var(--lime)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
                   >
                     ✏️ Editar
+                  </button>
+                  <button
+                    onClick={() => apagarProva(p.ano, p.nome_prova)}
+                    style={{ padding: '0.3rem 0.75rem', background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)', borderRadius: '0.5rem', color: '#ff6b6b', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    🗑️ Eliminar prova
                   </button>
                 </div>
 
