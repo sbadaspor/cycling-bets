@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { getProva, getApostaPorUser, getApostasProvaComPerfil, getUltimaEtapa } from '@/lib/queries'
+import { getProva, getApostaPorUser, getApostasProvaComPerfil, getUltimaEtapa, getTodasEtapas } from '@/lib/queries'
 import { categorizarProva } from '@/lib/provaStatus'
 import ApostaDetalhe from '@/components/dashboard/ApostaDetalhe'
+import SwipeableStages from '@/components/dashboard/SwipeableStages'
 import ComparacaoApostas from '@/components/dashboard/ComparacaoApostas'
 import type { Aposta, EtapaResultado } from '@/types'
 
@@ -28,17 +29,21 @@ export default async function ApostaDetalhePage({ params, searchParams }: Props)
   let aposta: Aposta | null = null
   let todasApostas: Aposta[] = []
   let ultimaEtapa: EtapaResultado | null = null
+  let todasEtapas: EtapaResultado[] = []
 
   try {
-    ;[aposta, todasApostas, ultimaEtapa] = await Promise.all([
+    ;[aposta, todasApostas, ultimaEtapa, todasEtapas] = await Promise.all([
       getApostaPorUser(provaId, userId),
       getApostasProvaComPerfil(provaId),
       getUltimaEtapa(provaId),
+      getTodasEtapas(provaId).catch(() => []),
     ])
   } catch (err) {
     console.error('[ApostaDetalhePage] Erro ao carregar dados:', err)
     try { aposta = await getApostaPorUser(provaId, userId) } catch { /* ignorar */ }
   }
+
+  const isMultiEtapas = todasEtapas.length > 1
 
   if (!aposta) {
     return (
@@ -92,7 +97,11 @@ export default async function ApostaDetalhePage({ params, searchParams }: Props)
         )}
       </div>
 
-      <ApostaDetalhe aposta={aposta} ultimaEtapa={ultimaEtapa} ehProvaUser={ehProvaUser} />
+      {isMultiEtapas ? (
+        <SwipeableStages aposta={aposta} etapas={todasEtapas} ehProvaUser={ehProvaUser} />
+      ) : (
+        <ApostaDetalhe aposta={aposta} ultimaEtapa={ultimaEtapa} ehProvaUser={ehProvaUser} />
+      )}
 
       {outrasApostas.length > 0 && (
         <ComparacaoApostas
