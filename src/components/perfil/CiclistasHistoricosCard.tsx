@@ -38,29 +38,35 @@ export default function CiclistasHistoricosCard({ apostas }: Props) {
   if (apostas.length === 0) return null
 
   // Calcular stats por ciclista
+  // REGRA: se o mesmo ciclista aparece no top E nas camisolas da mesma prova,
+  // conta apenas como 1 aposta (mas pode gerar pontos de ambos)
   const statsMap = new Map<string, CiclistaStats>()
 
   for (const aposta of apostas) {
-    const realSet = new Set((aposta.resultado_real_top ?? []).map(n => n.trim().toLowerCase()).filter(Boolean))
+    // Conjunto de nomes já processados para esta prova (evita duplicados)
+    const processadosNestaProva = new Set<string>()
 
+    // Processar GC top
     for (const nome of aposta.apostas_top ?? []) {
       if (!nome?.trim()) continue
       const key = nome.trim().toLowerCase()
       if (!statsMap.has(key)) {
         statsMap.set(key, { nome: nome.trim(), vezes_apostado: 0, vezes_acertou: 0, pontos_gerados: 0, taxa_acerto: 0, provas: [] })
       }
+      const realSet = new Set((aposta.resultado_real_top ?? []).map((n: string) => n.trim().toLowerCase()).filter(Boolean))
       const s = statsMap.get(key)!
-      s.vezes_apostado++
-      s.provas.push(`${aposta.nome_prova} ${aposta.ano}`)
+      if (!processadosNestaProva.has(key)) {
+        s.vezes_apostado++
+        s.provas.push(`${aposta.nome_prova} ${aposta.ano}`)
+        processadosNestaProva.add(key)
+      }
       if (realSet.has(key)) {
         s.vezes_acertou++
         s.pontos_gerados++
       }
     }
-  }
 
-  // Camisolas
-  for (const aposta of apostas) {
+    // Processar camisolas — não incrementa vezes_apostado se já estava no GC
     const pares = [
       { apostada: aposta.camisola_sprint_apostada, real: aposta.camisola_sprint_real },
       { apostada: aposta.camisola_montanha_apostada, real: aposta.camisola_montanha_real },
@@ -73,7 +79,13 @@ export default function CiclistasHistoricosCard({ apostas }: Props) {
         statsMap.set(key, { nome: apostada.trim(), vezes_apostado: 0, vezes_acertou: 0, pontos_gerados: 0, taxa_acerto: 0, provas: [] })
       }
       const s = statsMap.get(key)!
-      s.vezes_apostado++
+      // Só incrementar apostas se ainda não foi contabilizado nesta prova (não estava no GC)
+      if (!processadosNestaProva.has(key)) {
+        s.vezes_apostado++
+        s.provas.push(`${aposta.nome_prova} ${aposta.ano}`)
+        processadosNestaProva.add(key)
+      }
+      // Pontos de camisola são sempre contabilizados
       if (real && apostada.trim().toLowerCase() === real.trim().toLowerCase()) {
         s.vezes_acertou++
         s.pontos_gerados++
