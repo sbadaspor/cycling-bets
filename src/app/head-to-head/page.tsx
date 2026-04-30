@@ -96,7 +96,7 @@ export default async function HeadToHeadPage() {
         {perfisComStats.map((p, i) => (
           <Link key={p.id} href={`/perfil/${p.id}`} style={{ textDecoration: 'none' }}>
             <div style={{
-              background: 'var(--surface)', border: `1px solid ${i === 0 ? 'rgba(200,244,0,0.3)' : 'var(--border)'}`,
+              border: `1px solid ${i === 0 ? 'rgba(200,244,0,0.3)' : 'var(--border)'}`,
               borderRadius: '1rem', padding: '1.25rem', textAlign: 'center',
               transition: 'all 0.18s', cursor: 'pointer',
               background: i === 0 ? 'linear-gradient(135deg, rgba(200,244,0,0.06) 0%, transparent 60%)' : 'var(--surface)',
