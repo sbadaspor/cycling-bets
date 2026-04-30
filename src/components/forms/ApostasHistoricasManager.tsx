@@ -61,6 +61,7 @@ function calcularPontosPreview(apostas: string[], realTop: string[], camisolasA:
 }
 
 export default function ApostasHistoricasManager({ perfis }: Props) {
+  const [provaExpandida, setProvaExpandida] = useState<string | null>(null)
   const [modo, setModo] = useState<'lista' | 'inserir'>('lista')
   const [historico, setHistorico] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -161,6 +162,43 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
     await carregarHistorico()
   }
 
+  function editarProva(p: any) {
+    const entradas = historico.filter(h => h.ano === p.ano && h.nome_prova === p.nome_prova)
+    const primeira = entradas[0]
+    if (!primeira) return
+
+    // Pre-preencher info da prova
+    setProva({
+      ano: primeira.ano,
+      nome_prova: primeira.nome_prova,
+      categoria: primeira.categoria ?? 'grande_volta',
+      sistema: primeira.sistema ?? 'antigo',
+      resultado_real_top: primeira.resultado_real_top ?? Array(10).fill(''),
+      tem_camisolas: !!(primeira.camisola_sprint_real || primeira.camisola_montanha_real || primeira.camisola_juventude_real),
+      camisola_sprint_real: primeira.camisola_sprint_real ?? '',
+      camisola_montanha_real: primeira.camisola_montanha_real ?? '',
+      camisola_juventude_real: primeira.camisola_juventude_real ?? '',
+    })
+
+    // Pre-preencher dados de cada jogador
+    setJogadores(perfis.slice(0, 3).map(perf => {
+      const entrada = entradas.find(e => e.user_id === perf.id)
+      if (!entrada) return defaultJogador(perf.id)
+      return {
+        user_id: perf.id,
+        apostas_top: entrada.apostas_top ?? Array(10).fill(''),
+        posicao_grupo: entrada.posicao_grupo ? String(entrada.posicao_grupo) : '',
+        camisola_sprint_apostada: entrada.camisola_sprint_apostada ?? '',
+        camisola_montanha_apostada: entrada.camisola_montanha_apostada ?? '',
+        camisola_juventude_apostada: entrada.camisola_juventude_apostada ?? '',
+        pontos_preview: null,
+      }
+    }))
+
+    setErro(null); setSucesso(null)
+    setModo('inserir')
+  }
+
   const numPosicoes = prova.categoria === 'monumento' || prova.categoria === 'prova_dia' ? 10 : 10
 
   // Agrupar histórico por prova
@@ -188,14 +226,19 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
           {provasUnicas.sort((a, b) => b.ano - a.ano || a.nome_prova.localeCompare(b.nome_prova)).map(p => {
             const entradas = historico.filter(h => h.ano === p.ano && h.nome_prova === p.nome_prova)
             return (
-              <div key={`${p.ano}-${p.nome_prova}`} className="card" style={{ padding: '0.875rem 1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+              <div key={`${p.ano}-${p.nome_prova}`} className="card" style={{ padding: '0' }}>
+                <button
+                  onClick={() => setProvaExpandida(provaExpandida === `${p.ano}-${p.nome_prova}` ? null : `${p.ano}-${p.nome_prova}`)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1rem', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                >
                   <div>
                     <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text)' }}>{p.nome_prova} <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>{p.ano}</span></p>
                     <p style={{ fontSize: '0.72rem', color: 'var(--text-sub)' }}>{p.sistema === 'antigo' ? '1pt/acerto' : 'Sistema atual'} · {entradas.length} jogadores</p>
                   </div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ color: 'var(--text-dim)', transition: 'transform 0.2s', transform: provaExpandida === `${p.ano}-${p.nome_prova}` ? 'rotate(180deg)' : 'none' }}>▼</span>
+                </button>
+
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', padding: '0 1rem 0.75rem', alignItems: 'center' }}>
                   {entradas.map(e => (
                     <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--surface-2)', borderRadius: '0.5rem', padding: '0.3rem 0.625rem' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 600, color: e.posicao_grupo === 1 ? 'var(--lime)' : 'var(--text-dim)' }}>
@@ -205,7 +248,57 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
                       <button onClick={() => apagar(e.id)} style={{ fontSize: '0.7rem', color: '#ff6b6b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
                     </div>
                   ))}
+                  <button
+                    onClick={() => editarProva(p)}
+                    style={{ padding: '0.3rem 0.75rem', background: 'rgba(200,244,0,0.1)', border: '1px solid rgba(200,244,0,0.25)', borderRadius: '0.5rem', color: 'var(--lime)', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    ✏️ Editar
+                  </button>
                 </div>
+
+                {/* Detalhe expandido */}
+                {provaExpandida === `${p.ano}-${p.nome_prova}` && (
+                  <div style={{ borderTop: '1px solid var(--border)' }}>
+                    <div style={{ overflowX: 'auto', padding: '0.75rem 1rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(entradas.length + 1, 4)}, minmax(140px, 1fr))`, gap: '0.5rem', minWidth: 0 }}>
+                        {/* Resultado real */}
+                        <div style={{ background: 'var(--surface-2)', borderRadius: '0.625rem', padding: '0.625rem' }}>
+                          <p style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--lime)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>🏆 Real</p>
+                          {(entradas[0]?.resultado_real_top ?? []).map((nome: string, i: number) => (
+                            <p key={i} style={{ fontSize: '0.72rem', color: 'var(--text-dim)', padding: '0.15rem 0', display: 'flex', gap: '0.35rem' }}>
+                              <span style={{ color: 'var(--text-sub)', minWidth: 16 }}>{i + 1}</span> {nome}
+                            </p>
+                          ))}
+                          {entradas[0]?.camisola_sprint_real && <p style={{ fontSize: '0.68rem', color: 'var(--text-sub)', marginTop: '0.35rem' }}>🟢 {entradas[0].camisola_sprint_real}</p>}
+                          {entradas[0]?.camisola_montanha_real && <p style={{ fontSize: '0.68rem', color: 'var(--text-sub)' }}>🔴 {entradas[0].camisola_montanha_real}</p>}
+                          {entradas[0]?.camisola_juventude_real && <p style={{ fontSize: '0.68rem', color: 'var(--text-sub)' }}>⚪ {entradas[0].camisola_juventude_real}</p>}
+                        </div>
+                        {/* Apostas de cada jogador */}
+                        {entradas.map(e => {
+                          const realSet = new Set((e.resultado_real_top ?? []).map((n: string) => n.trim().toLowerCase()))
+                          return (
+                            <div key={e.id} style={{ background: 'var(--surface-2)', borderRadius: '0.625rem', padding: '0.625rem' }}>
+                              <p style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--lime)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>{e.perfil?.username}</p>
+                              {(e.apostas_top ?? []).map((nome: string, i: number) => {
+                                const acertou = nome.trim() && realSet.has(nome.trim().toLowerCase())
+                                return (
+                                  <p key={i} style={{ fontSize: '0.72rem', color: acertou ? '#44cc88' : 'var(--text-dim)', padding: '0.15rem 0', display: 'flex', gap: '0.35rem' }}>
+                                    <span style={{ color: 'var(--text-sub)', minWidth: 16 }}>{i + 1}</span>
+                                    {nome} {acertou ? '✅' : ''}
+                                  </p>
+                                )
+                              })}
+                              {e.camisola_sprint_apostada && <p style={{ fontSize: '0.68rem', color: e.camisola_sprint_apostada?.toLowerCase() === e.camisola_sprint_real?.toLowerCase() ? '#44cc88' : 'var(--text-sub)', marginTop: '0.35rem' }}>🟢 {e.camisola_sprint_apostada}</p>}
+                              {e.camisola_montanha_apostada && <p style={{ fontSize: '0.68rem', color: e.camisola_montanha_apostada?.toLowerCase() === e.camisola_montanha_real?.toLowerCase() ? '#44cc88' : 'var(--text-sub)' }}>🔴 {e.camisola_montanha_apostada}</p>}
+                              {e.camisola_juventude_apostada && <p style={{ fontSize: '0.68rem', color: e.camisola_juventude_apostada?.toLowerCase() === e.camisola_juventude_real?.toLowerCase() ? '#44cc88' : 'var(--text-sub)' }}>⚪ {e.camisola_juventude_apostada}</p>}
+                              <p style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--lime)', marginTop: '0.35rem', fontFamily: 'Barlow Condensed, sans-serif' }}>{e.pontos_total}pts</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
