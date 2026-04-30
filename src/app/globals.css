@@ -25,6 +25,13 @@
   body {
     font-family: 'DM Sans', system-ui, sans-serif;
     background-color: var(--bg);
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 40px,
+      rgba(255,255,255,0.013) 40px,
+      rgba(255,255,255,0.013) 41px
+    );
     color: var(--text);
     -webkit-font-smoothing: antialiased;
     padding-top: env(safe-area-inset-top);
