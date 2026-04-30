@@ -52,9 +52,48 @@ function defaultJogador(userId: string): JogadorData {
   }
 }
 
-function calcularPontosPreview(apostas: string[], realTop: string[], camisolasA: { s: string; m: string; j: string }, camisolasR: { s: string; m: string; j: string }): number {
-  const realSet = new Set(realTop.map(n => n.trim().toLowerCase()).filter(Boolean))
-  let pts = apostas.filter(n => n.trim() && realSet.has(n.trim().toLowerCase())).length
+function calcularPontosPreview(
+  apostas: string[],
+  realTop: string[],
+  camisolasA: { s: string; m: string; j: string },
+  camisolasR: { s: string; m: string; j: string },
+  sistema: 'antigo' | 'novo',
+  categoria: CategoriaProvaTipo
+): number {
+  if (sistema === 'antigo') {
+    const realSet = new Set(realTop.map(n => n.trim().toLowerCase()).filter(Boolean))
+    let pts = apostas.filter(n => n.trim() && realSet.has(n.trim().toLowerCase())).length
+    if (camisolasA.s && camisolasR.s && camisolasA.s.toLowerCase() === camisolasR.s.toLowerCase()) pts++
+    if (camisolasA.m && camisolasR.m && camisolasA.m.toLowerCase() === camisolasR.m.toLowerCase()) pts++
+    if (camisolasA.j && camisolasR.j && camisolasA.j.toLowerCase() === camisolasR.j.toLowerCase()) pts++
+    return pts
+  }
+
+  // Sistema novo — replicar lógica do motor de pontuação
+  const isSimples = categoria === 'monumento' || categoria === 'prova_dia'
+  const posicaoReal = new Map<string, number>()
+  realTop.forEach((c, i) => { if (c?.trim()) posicaoReal.set(c.trim().toLowerCase(), i + 1) })
+
+  let pts = 0
+  apostas.forEach((c, idx) => {
+    if (!c?.trim()) return
+    const posApostada = idx + 1
+    const posReal = posicaoReal.get(c.trim().toLowerCase()) ?? null
+    if (isSimples) {
+      if (posReal !== null && posReal <= 10) {
+        pts += posReal === posApostada ? 2 : 1
+      }
+    } else {
+      if (posReal !== null) {
+        if (posApostada <= 10 && posReal <= 10) pts += 3
+        else if (posApostada > 10 && posReal > 10) pts += 2
+        else if (posApostada > 10 && posReal <= 10) pts += 1
+        if (posReal === posApostada) pts += 0 // acerto exato não dá pts extra nas GV
+      }
+    }
+  })
+
+  // Camisolas
   if (camisolasA.s && camisolasR.s && camisolasA.s.toLowerCase() === camisolasR.s.toLowerCase()) pts++
   if (camisolasA.m && camisolasR.m && camisolasA.m.toLowerCase() === camisolasR.m.toLowerCase()) pts++
   if (camisolasA.j && camisolasR.j && camisolasA.j.toLowerCase() === camisolasR.j.toLowerCase()) pts++
@@ -95,7 +134,6 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
     if (Array.isArray(data)) setHistorico(data)
   }
 
-  // Preview de pontos em tempo real
   useEffect(() => {
     setJogadores(prev => prev.map(j => ({
       ...j,
@@ -105,10 +143,12 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
             prova.resultado_real_top,
             { s: j.camisola_sprint_apostada, m: j.camisola_montanha_apostada, j: j.camisola_juventude_apostada },
             { s: prova.camisola_sprint_real, m: prova.camisola_montanha_real, j: prova.camisola_juventude_real },
+            prova.sistema,
+            prova.categoria,
           )
         : null,
     })))
-  }, [prova.resultado_real_top, prova.camisola_sprint_real, prova.camisola_montanha_real, prova.camisola_juventude_real,
+  }, [prova.resultado_real_top, prova.camisola_sprint_real, prova.camisola_montanha_real, prova.camisola_juventude_real, prova.sistema, prova.categoria,
       jogadores.map(j => [...j.apostas_top, j.camisola_sprint_apostada, j.camisola_montanha_apostada, j.camisola_juventude_apostada].join('|')).join('||')])
 
   function updateJogador(idx: number, field: keyof JogadorData, value: any) {
@@ -208,7 +248,25 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
     setModo('inserir')
   }
 
-  const numPosicoes = prova.categoria === 'monumento' || prova.categoria === 'prova_dia' ? 10 : 10
+  const numPosicoes = prova.sistema === 'novo'
+    ? (prova.categoria === 'monumento' || prova.categoria === 'prova_dia' ? 10 : 20)
+    : 10  // sistema antigo sempre Top-10
+
+  // Quando muda o sistema ou categoria, ajustar o tamanho das listas
+  useEffect(() => {
+    setJogadores(prev => prev.map(j => ({
+      ...j,
+      apostas_top: j.apostas_top.length === numPosicoes
+        ? j.apostas_top
+        : j.apostas_top.slice(0, numPosicoes).concat(Array(Math.max(0, numPosicoes - j.apostas_top.length)).fill('')),
+    })))
+    setProva(prev => ({
+      ...prev,
+      resultado_real_top: prev.resultado_real_top.slice(0, numPosicoes).concat(
+        Array(Math.max(0, numPosicoes - prev.resultado_real_top.length)).fill('')
+      ),
+    }))
+  }, [numPosicoes])
 
   // Agrupar histórico por prova
   const provasUnicas = [...new Map(historico.map(h => [`${h.ano}-${h.nome_prova}`, h])).values()]
@@ -356,11 +414,32 @@ export default function ApostasHistoricasManager({ perfis }: Props) {
           <input className="input-field" value={prova.nome_prova} onChange={e => setProva(p => ({ ...p, nome_prova: e.target.value }))} placeholder="Ex: Tour de France 2023" />
         </div>
 
+        <div>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'block', marginBottom: '0.5rem' }}>Sistema de pontuação</label>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {[
+              { value: 'antigo', label: '📜 Antigo', desc: 'Top-10 · 1pt por acerto' },
+              { value: 'novo',   label: '⚡ Atual',  desc: 'Top-20 · 2-3pts por range' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setProva(p => ({ ...p, sistema: opt.value as 'antigo' | 'novo' }))}
+                style={{
+                  flex: 1, padding: '0.5rem 0.75rem', borderRadius: '0.625rem', cursor: 'pointer',
+                  border: `1px solid ${prova.sistema === opt.value ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
+                  background: prova.sistema === opt.value ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
+                  textAlign: 'center',
+                }}
+              >
+                <p style={{ fontSize: '0.82rem', fontWeight: 700, color: prova.sistema === opt.value ? 'var(--lime)' : 'var(--text)', margin: 0 }}>{opt.label}</p>
+                <p style={{ fontSize: '0.65rem', color: 'var(--text-sub)', margin: '0.15rem 0 0' }}>{opt.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
-            <input type="checkbox" checked={prova.sistema === 'antigo'} onChange={e => setProva(p => ({ ...p, sistema: e.target.checked ? 'antigo' : 'novo' }))} />
-            Sistema antigo (1pt por acerto)
-          </label>
           <label style={{ fontSize: '0.8rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
             <input type="checkbox" checked={prova.tem_camisolas} onChange={e => setProva(p => ({ ...p, tem_camisolas: e.target.checked }))} />
             Tem camisolas
