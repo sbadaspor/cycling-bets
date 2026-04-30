@@ -262,7 +262,7 @@ export default async function PerfilPage({ params }: Props) {
         username={perfil.username}
         avatarUrl={perfil.avatar_url}
         resultados={resultadosApp}
-        pontosTotal={statsGerais?.apostas?.pontos_total ?? 0}
+        pontosTotal={resultadosApp.reduce((s, r) => s + r.pontosTotal, 0)}
         rankGeral={rankGeral}
       />
 
