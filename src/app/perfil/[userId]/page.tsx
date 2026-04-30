@@ -5,6 +5,8 @@ import { getLeaderboardGeral, getVitoriasAgregadas, getAllLeaderboardsFinalizada
 import type { CategoriaProvaTipo } from '@/types'
 import { tipoGrandeVolta, ordemDentroAno } from '@/lib/provaUtils'
 import PerfilSections, { type EntradaPalmar, type ResultadoApp } from '@/components/perfil/PerfilSections'
+import CartaoEpoca from '@/components/perfil/CartaoEpoca'
+import AdvancedStatsCard from '@/components/perfil/AdvancedStatsCard'
 
 interface Props {
   params: Promise<{ userId: string }>
@@ -253,6 +255,16 @@ export default async function PerfilPage({ params }: Props) {
       <div className="animate-fade-up delay-1">
         <PerfilSections resultados={resultadosApp} palmares={palmares} />
       </div>
+
+      <AdvancedStatsCard resultados={resultadosApp} />
+
+      <CartaoEpoca
+        username={perfil.username}
+        avatarUrl={perfil.avatar_url}
+        resultados={resultadosApp}
+        pontosTotal={statsGerais?.aposta?.pontos_total ?? 0}
+        rankGeral={rankGeral}
+      />
 
       {statsGerais && (
         <div className="card-flush animate-fade-up delay-2">
