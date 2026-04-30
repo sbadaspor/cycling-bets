@@ -1,10 +1,9 @@
 'use client'
 
-'use client'
-
 import Link from 'next/link'
 import type { Aposta, EtapaResultado, Prova } from '@/types'
 import { compararDesempate } from '@/lib/pontuacao'
+import AnimatedPoints from '@/components/ui/AnimatedPoints'
 
 interface Props {
   prova: Prova
@@ -117,15 +116,8 @@ export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, t
                   {a.pontos_camisolas != null && <span>🎽 {a.pontos_camisolas}</span>}
                 </div>
 
-                {/* Total */}
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <span style={{
-                    fontFamily: 'Barlow Condensed, sans-serif',
-                    fontSize: '1.25rem', fontWeight: 800,
-                    color: isTop3 ? 'var(--lime)' : 'var(--text)',
-                  }}>{pontos}</span>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginLeft: '2px' }}>pts</span>
-                </div>
+                {/* Total animado */}
+                <AnimatedPoints value={pontos} isTop3={isTop3} />
               </Link>
             )
           })}
