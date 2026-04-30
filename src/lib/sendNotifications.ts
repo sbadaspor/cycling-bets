@@ -81,7 +81,7 @@ async function sendPush(subscription: { endpoint: string; keys: { p256dh: string
   if (res.status !== 200 && res.status !== 201) throw new Error(`Push falhou: ${res.status}`)
 }
 
-export async function sendNotificationsToAll(title: string, body: string, url: string, user_ids?: string[]) {
+export async function sendNotificationsToAll(title: string, body: string, url: string, excludeUserId?: string, user_ids?: string[]) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -90,6 +90,9 @@ export async function sendNotificationsToAll(title: string, body: string, url: s
   let query = supabase.from('push_subscriptions').select('subscription, user_id')
   if (user_ids && user_ids.length > 0) {
     query = query.in('user_id', user_ids)
+  }
+  if (excludeUserId) {
+    query = query.neq('user_id', excludeUserId)
   }
 
   const { data: rows, error } = await query
