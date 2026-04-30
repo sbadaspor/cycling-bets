@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Aposta, Ciclista, Prova } from '@/types'
 import CyclistAutocomplete from './CyclistAutocomplete'
 import { getConfigCategoria } from '@/lib/categoriaConfig'
+import Confetti from '@/components/ui/Confetti'
 
 interface Props {
   prova: Prova
@@ -88,8 +89,10 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setErro(data.error ?? 'Erro ao submeter aposta'); return }
+      // Haptic feedback (mobile)
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100])
       setSucesso(true)
-      setTimeout(() => router.push('/'), 2000)
+      setTimeout(() => router.push('/'), 2500)
     } catch {
       setErro('Erro de rede. Tenta novamente.')
     } finally {
@@ -99,13 +102,16 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
 
   if (sucesso) {
     return (
-      <div className="card animate-fade-up" style={{ textAlign: 'center', padding: '3.5rem 1.25rem' }}>
-        <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎉</div>
-        <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 800, color: 'var(--lime)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
-          {apostaExistente ? 'Aposta atualizada!' : 'Aposta submetida!'}
-        </h2>
-        <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>A redirecionar para o dashboard...</p>
-      </div>
+      <>
+        <Confetti active={true} />
+        <div className="card animate-fade-up" style={{ textAlign: 'center', padding: '3.5rem 1.25rem' }}>
+          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎉</div>
+          <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 800, color: 'var(--lime)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+            {apostaExistente ? 'Aposta atualizada!' : 'Aposta submetida!'}
+          </h2>
+          <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>A redirecionar para o dashboard...</p>
+        </div>
+      </>
     )
   }
 
