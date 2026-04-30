@@ -61,5 +61,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // 53 — Notificar os outros 2 jogadores quando alguém aposta
+  try {
+    const { sendNotificationsToAll } = await import('@/lib/sendNotifications')
+    const { data: perfilUser } = await supabase
+      .from('perfis').select('username').eq('id', user.id).single()
+    const { data: provaInfo } = await supabase
+      .from('provas').select('nome').eq('id', prova_id).single()
+    const username = perfilUser?.username ?? 'Alguém'
+    const nomeProva = provaInfo?.nome ?? 'uma prova'
+    await sendNotificationsToAll(
+      `🎯 ${username} apostou!`,
+      `${username} acabou de submeter a aposta para ${nomeProva}.`,
+      `/provas/${prova_id}`,
+      user.id // excluir o próprio user
+    )
+  } catch {
+    // best-effort
+  }
+
   return NextResponse.json({ success: true, aposta: data })
 }
