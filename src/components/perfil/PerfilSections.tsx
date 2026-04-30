@@ -212,34 +212,51 @@ function ResultadoHistoricoRow({ r, isLast }: { r: ResultadoHistorico; isLast: b
 
 // ── Main component ─────────────────────────────────────
 export default function PerfilSections({ resultados, resultadosHistoricos = [], palmares }: Props) {
-  const totalResultados = resultados.length + resultadosHistoricos.length
+  // Merge e ordenar tudo por ano desc, depois por nome
+  const todosResultados: Array<
+    | ({ tipo: 'app' } & ResultadoApp)
+    | ({ tipo: 'historico' } & ResultadoHistorico)
+  > = [
+    ...resultados.map(r => ({ tipo: 'app' as const, ...r })),
+    ...resultadosHistoricos.map(r => ({ tipo: 'historico' as const, ...r })),
+  ].sort((a, b) => {
+    const anoA = a.tipo === 'app' ? a.ano : a.ano
+    const anoB = b.tipo === 'app' ? b.ano : b.ano
+    if (anoB !== anoA) return anoB - anoA
+    const nomeA = a.tipo === 'app' ? a.nome : a.nome
+    const nomeB = b.tipo === 'app' ? b.nome : b.nome
+    return nomeA.localeCompare(nomeB)
+  })
+
+  const total = todosResultados.length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
       {/* ── Os meus resultados ── */}
-      <Accordion subtitle="📊 Histórico" title="Os meus resultados" count={totalResultados} defaultOpen={totalResultados > 0}>
-        {totalResultados === 0 ? (
+      <Accordion subtitle="📊 Histórico" title="Os meus resultados" count={total} defaultOpen={total > 0}>
+        {total === 0 ? (
           <div style={{ padding: '2rem 1.25rem', textAlign: 'center', color: '#9a9ab5', fontSize: '0.875rem' }}>
             Ainda não há resultados registados.
           </div>
         ) : (
           <div>
-            {/* Resultados da app */}
-            {resultados.map((r, idx) => {
+            {todosResultados.map((r, idx) => {
+              if (r.tipo === 'historico') {
+                return (
+                  <ResultadoHistoricoRow key={`h-${r.id}`} r={r} isLast={idx === total - 1} />
+                )
+              }
+              // App result
               const { text: posText, color: posColor } = posicaoLabel(r.posicao)
               const tipo = tipoGrandeVolta(r.nome)
               const flag = tipo === 'giro' ? '🇮🇹' : tipo === 'tour' ? '🇫🇷' : tipo === 'vuelta' ? '🇪🇸' : '🏁'
+              const borderBottom = idx < total - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none'
               return (
                 <Link
-                  key={r.provaId}
+                  key={`app-${r.provaId}`}
                   href={`/provas/${r.provaId}`}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.875rem',
-                    padding: '0.875rem 1.25rem', textDecoration: 'none',
-                    borderBottom: '1px solid rgba(255,255,255,0.07)',
-                    transition: 'background 0.12s',
-                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem 1.25rem', textDecoration: 'none', borderBottom, transition: 'background 0.12s' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
@@ -259,11 +276,6 @@ export default function PerfilSections({ resultados, resultadosHistoricos = [], 
                 </Link>
               )
             })}
-
-            {/* Resultados históricos — clicáveis para expandir */}
-            {resultadosHistoricos.map((r, idx) => (
-              <ResultadoHistoricoRow key={r.id} r={r} isLast={idx === resultadosHistoricos.length - 1} />
-            ))}
           </div>
         )}
       </Accordion>
