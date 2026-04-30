@@ -7,11 +7,14 @@ import ProvaDetalhe from './ProvaDetalhe'
 
 interface Props {
   provas: Prova[]
+  perfis: Array<{ id: string; username: string; avatar_url: string | null; full_name: string | null }>
 }
 
-type Tab = 'provas' | 'notificacoes'
+import ApostasHistoricasManager from './ApostasHistoricasManager'
 
-export function AdminPanel({ provas }: Props) {
+type Tab = 'provas' | 'historico' | 'notificacoes'
+
+export function AdminPanel({ provas, perfis }: Props) {
   const [tab, setTab] = useState<Tab>('provas')
   const [provaSelecionadaId, setProvaSelecionadaId] = useState<string | null>(null)
 
@@ -78,6 +81,7 @@ export function AdminPanel({ provas }: Props) {
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
         {([
           { key: 'provas', label: '🏆 Provas' },
+          { key: 'historico', label: '📜 Histórico' },
           { key: 'notificacoes', label: '🔔 Notificações' },
         ] as { key: Tab; label: string }[]).map(t => (
           <button
@@ -104,6 +108,11 @@ export function AdminPanel({ provas }: Props) {
           provas={provas}
           onSelecionar={(p) => setProvaSelecionadaId(p.id)}
         />
+      )}
+
+      {/* Tab: Histórico */}
+      {tab === 'historico' && (
+        <ApostasHistoricasManager perfis={perfis as any} />
       )}
 
       {/* Tab: Notificações */}
