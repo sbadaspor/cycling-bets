@@ -153,6 +153,9 @@
 @keyframes fade-in   { from { opacity:0; } to { opacity:1; } }
 @keyframes slide-dn  { from { opacity:0; transform: translateY(-8px); } to { opacity:1; transform: translateY(0); } }
 @keyframes glow-pulse { 0%,100% { box-shadow: 0 0 16px var(--lime-glow); } 50% { box-shadow: 0 0 36px rgba(200,244,0,0.3); } }
+@keyframes shimmer   { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes fadeIn    { from { opacity:0; transform: translateY(4px); } to { opacity:1; transform: translateY(0); } }
+@keyframes confettiFall { 0% { transform: translateY(-10px) rotate(0deg); opacity:1; } 100% { transform: translateY(100vh) rotate(720deg); opacity:0; } }
 
 .animate-fade-up    { animation: fade-up  0.38s ease both; }
 .animate-fade-in    { animation: fade-in  0.28s ease both; }
