@@ -7,6 +7,7 @@ import { tipoGrandeVolta, ordemDentroAno } from '@/lib/provaUtils'
 import PerfilSections, { type EntradaPalmar, type ResultadoApp } from '@/components/perfil/PerfilSections'
 import CartaoEpoca from '@/components/perfil/CartaoEpoca'
 import AdvancedStatsCard from '@/components/perfil/AdvancedStatsCard'
+import CiclistasHistoricosCard from '@/components/perfil/CiclistasHistoricosCard'
 
 interface Props {
   params: Promise<{ userId: string }>
@@ -40,6 +41,12 @@ export default async function PerfilPage({ params }: Props) {
     .from('vitorias_historicas')
     .select('*')
     .eq('user_id', userId)
+
+  const { data: apostasHistoricasRaw } = await supabase
+    .from('apostas_historicas')
+    .select('*')
+    .eq('user_id', userId)
+    .order('ano', { ascending: false })
 
   const historicas = (historicasRaw ?? []) as {
     id: string; ano: number; nome_prova: string; categoria: CategoriaProvaTipo
@@ -257,6 +264,10 @@ export default async function PerfilPage({ params }: Props) {
       </div>
 
       <AdvancedStatsCard resultados={resultadosApp} />
+
+      {apostasHistoricasRaw && apostasHistoricasRaw.length > 0 && (
+        <CiclistasHistoricosCard apostas={apostasHistoricasRaw as any} />
+      )}
 
       <CartaoEpoca
         username={perfil.username}
