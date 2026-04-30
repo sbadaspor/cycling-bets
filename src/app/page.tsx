@@ -13,6 +13,7 @@ import { ProvasList } from '@/components/dashboard/ProvasList'
 import ClassificacaoProvaTable from '@/components/dashboard/ClassificacaoProvaTable'
 import VitoriasJogadores from '@/components/dashboard/VitoriasJogadores'
 import ActivityFeed from '@/components/dashboard/ActivityFeed'
+import AuthHashHandler from '@/components/auth/AuthHashHandler'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -72,6 +73,7 @@ export default async function HomePage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <AuthHashHandler />
 
       {/* Hero */}
       <div className="animate-fade-up hero-glow" style={{ position: 'relative' }}>
