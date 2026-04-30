@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const {
+    original_id,
     user_id, ano, nome_prova, categoria, posicao_grupo,
     apostas_top, resultado_real_top, sistema,
     camisola_sprint_apostada, camisola_sprint_real,
@@ -54,13 +55,19 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Apagar entrada existente (se houver) e reinserir
-  await supabase
-    .from('apostas_historicas')
-    .delete()
-    .eq('user_id', user_id)
-    .eq('ano', ano)
-    .eq('nome_prova', nome_prova)
+  // Apagar entrada existente:
+  // Se tiver original_id, apaga por ID exacto (edição sem duplicar)
+  // Senão, apaga por user_id+ano+nome (inserção nova ou fallback)
+  if (original_id) {
+    await supabase.from('apostas_historicas').delete().eq('id', original_id)
+  } else {
+    await supabase
+      .from('apostas_historicas')
+      .delete()
+      .eq('user_id', user_id)
+      .eq('ano', ano)
+      .eq('nome_prova', nome_prova)
+  }
 
   const { data, error } = await supabase
     .from('apostas_historicas')
@@ -91,9 +98,20 @@ export async function DELETE(req: NextRequest) {
   const { data: perfil } = await supabase.from('perfis').select('is_admin').eq('id', user.id).single()
   if (!perfil?.is_admin) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
 
-  const { id } = await req.json()
-  if (!id) return NextResponse.json({ error: 'id em falta' }, { status: 400 })
+  const { id, ano, nome_prova } = await req.json()
 
+  if (ano && nome_prova) {
+    // Apagar TODA a prova (todos os jogadores)
+    const { error } = await supabase
+      .from('apostas_historicas')
+      .delete()
+      .eq('ano', ano)
+      .eq('nome_prova', nome_prova)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true, deleted: 'prova_completa' })
+  }
+
+  if (!id) return NextResponse.json({ error: 'id em falta' }, { status: 400 })
   const { error } = await supabase.from('apostas_historicas').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
