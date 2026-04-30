@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { calcularPontos } from '@/lib/pontuacao'
+import type { CategoriaProvaTipo } from '@/types'
 
 // ── Pontuação histórica (sistema antigo: 1pt por acerto top-10) ─────────────
 function calcularPontosAntigo(
@@ -53,6 +55,24 @@ export async function POST(req: NextRequest) {
       { sprint: camisola_sprint_apostada, montanha: camisola_montanha_apostada, juventude: camisola_juventude_apostada },
       { sprint: camisola_sprint_real, montanha: camisola_montanha_real, juventude: camisola_juventude_real },
     )
+  } else {
+    // Sistema atual — usar o motor real de pontuação
+    const resultado = calcularPontos(
+      apostas_top ?? [],
+      resultado_real_top ?? [],
+      {
+        sprint: camisola_sprint_apostada ?? '',
+        montanha: camisola_montanha_apostada ?? '',
+        juventude: camisola_juventude_apostada ?? '',
+      },
+      {
+        sprint: camisola_sprint_real ?? '',
+        montanha: camisola_montanha_real ?? '',
+        juventude: camisola_juventude_real ?? '',
+      },
+      categoria as CategoriaProvaTipo
+    )
+    pontos_total = resultado.pontos_total
   }
 
   // Apagar entrada existente:
