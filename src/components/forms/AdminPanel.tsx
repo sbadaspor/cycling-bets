@@ -17,6 +17,18 @@ type Tab = 'provas' | 'historico' | 'notificacoes'
 export function AdminPanel({ provas, perfis }: Props) {
   const [tab, setTab] = useState<Tab>('provas')
   const [provaSelecionadaId, setProvaSelecionadaId] = useState<string | null>(null)
+  const [historicasProvas, setHistoricasProvas] = useState<Array<{ id: string; nome: string; ano: number; categoria: string }>>([])
+
+  useEffect(() => {
+    fetch('/api/admin/apostas-historicas')
+      .then(r => r.json())
+      .then((data: any[]) => {
+        if (!Array.isArray(data)) return
+        const unicas = [...new Map(data.map(h => [`${h.ano}-${h.nome_prova}`, { id: `hist-${h.ano}-${h.nome_prova}`, nome: h.nome_prova, ano: h.ano, categoria: h.categoria }])).values()]
+        setHistoricasProvas(unicas)
+      })
+      .catch(() => {})
+  }, [])
 
   // Notificações
   const [titulo, setTitulo] = useState('')
@@ -107,6 +119,7 @@ export function AdminPanel({ provas, perfis }: Props) {
         <ProvasList
           provas={provas}
           onSelecionar={(p) => setProvaSelecionadaId(p.id)}
+          historicas={historicasProvas}
         />
       )}
 
