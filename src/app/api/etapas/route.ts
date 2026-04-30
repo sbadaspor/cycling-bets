@@ -302,20 +302,29 @@ export async function POST(req: NextRequest) {
 
   await sincronizarResultadoFinal(supabase, prova_id, userId)
 
-  // Notificacao automatica quando e inserido o resultado final
-  if (is_final) {
-    try {
-      const { sendNotificationsToAll } = await import('@/lib/sendNotifications')
-      const { data: provaInfo } = await supabase
-        .from('provas').select('nome').eq('id', prova_id).single()
+  // Notificação automática para TODAS as etapas (não só finais)
+  try {
+    const { sendNotificationsToAll } = await import('@/lib/sendNotifications')
+    const { data: provaInfo } = await supabase
+      .from('provas').select('nome, categoria').eq('id', prova_id).single()
+    const nomeProva = provaInfo?.nome ?? 'uma prova'
+    const isGrandeVolta = provaInfo?.categoria === 'grande_volta' || provaInfo?.categoria === 'prova_semana'
+
+    if (is_final) {
       await sendNotificationsToAll(
-        '🏁 Resultados disponíveis',
-        `Já podes ver a classificação final de ${provaInfo?.nome ?? 'uma prova'}.`,
+        '🏁 Classificação final disponível!',
+        `${nomeProva} terminou. Vê a classificação final.`,
         `/provas/${prova_id}`,
       )
-    } catch {
-      // Notificacoes sao best-effort — nao bloquear a resposta se falharem
+    } else if (isGrandeVolta) {
+      await sendNotificationsToAll(
+        `⚡ Etapa ${numero_etapa} concluída`,
+        `Os pontos de ${nomeProva} foram atualizados. Vê como estás!`,
+        `/provas/${prova_id}`,
+      )
     }
+  } catch {
+    // Notificações são best-effort — não bloquear a resposta
   }
 
   return NextResponse.json({
