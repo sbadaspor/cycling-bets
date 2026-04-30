@@ -7,6 +7,7 @@ import NovaProvaForm from './NovaProvaForm'
 interface Props {
   provas: Prova[]
   onSelecionar: (prova: Prova) => void
+  historicas?: Array<{ nome: string; ano: number; categoria: string; id: string }>
 }
 
 type Filtro = 'todas' | 'a_decorrer' | 'futuras' | 'finalizadas'
@@ -38,7 +39,7 @@ function categorizar(prova: Prova): ProvaCategorizada {
   return { ...prova, estado, diasAteInicio }
 }
 
-export default function ProvasList({ provas, onSelecionar }: Props) {
+export default function ProvasList({ provas, onSelecionar, historicas = [] }: Props) {
   const [filtro, setFiltro] = useState<Filtro>('todas')
   const [mostrarNova, setMostrarNova] = useState(false)
 
@@ -69,8 +70,8 @@ export default function ProvasList({ provas, onSelecionar }: Props) {
     todas: provasCategorizadas.length,
     a_decorrer: provasCategorizadas.filter(p => p.estado === 'a_decorrer').length,
     futuras: provasCategorizadas.filter(p => p.estado === 'futura').length,
-    finalizadas: provasCategorizadas.filter(p => p.estado === 'finalizada').length,
-  }), [provasCategorizadas])
+    finalizadas: provasCategorizadas.filter(p => p.estado === 'finalizada').length + historicas.length,
+  }), [provasCategorizadas, historicas])
 
   const provasFiltradas = useMemo(() => {
     if (filtro === 'todas') return provasCategorizadas
@@ -147,7 +148,7 @@ export default function ProvasList({ provas, onSelecionar }: Props) {
         />
       )}
 
-      {provasFiltradas.length === 0 ? (
+      {provasFiltradas.length === 0 && (filtro !== 'finalizadas' || historicas.length === 0) ? (
         <div className="card text-center py-12 text-zinc-500">
           <p>Não há provas {filtro !== 'todas' ? `na categoria selecionada` : ''}.</p>
         </div>
@@ -178,6 +179,25 @@ export default function ProvasList({ provas, onSelecionar }: Props) {
               >
                 Gerir →
               </button>
+            </div>
+          ))}
+
+          {/* Provas históricas — só no tab finalizadas ou todas */}
+          {(filtro === 'finalizadas' || filtro === 'todas') && historicas.map(h => (
+            <div
+              key={h.id}
+              className="flex items-center justify-between gap-3 rounded-lg border border-zinc-700/50 bg-zinc-900/30 p-4"
+              style={{ opacity: 0.85 }}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-zinc-100">{h.nome}</span>
+                  <span className="badge bg-zinc-800 text-zinc-400 border border-zinc-700 text-xs">✅ Finalizada</span>
+                  <span style={{ fontSize: '0.65rem', background: 'rgba(200,244,0,0.1)', color: 'var(--lime)', border: '1px solid rgba(200,244,0,0.2)', padding: '0.1rem 0.4rem', borderRadius: '999px', fontWeight: 700 }}>📜 Histórico</span>
+                </div>
+                <div className="text-xs text-zinc-500 mt-1">{h.ano}</div>
+              </div>
+              <span className="text-xs text-zinc-500 italic">Ver em Admin → Histórico</span>
             </div>
           ))}
         </div>
