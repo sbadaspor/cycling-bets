@@ -71,13 +71,23 @@ export default function ImageResultsParser({ provaId, ciclistas, temCamisolas, n
 
       // Propagar tempos reais: "s.t." herda o último tempo conhecido
       let ultimoTempo = '0:00'
-      const cyclistsComTempos = (data.cyclists as ParsedCyclist[]).map(c => {
+      let cyclistsComTempos = (data.cyclists as ParsedCyclist[]).map(c => {
         const tempoLimpo = c.tempo?.trim().toLowerCase()
         if (!tempoLimpo || tempoLimpo === 's.t.' || tempoLimpo === 'st' || tempoLimpo === '') {
           return { ...c, tempo: ultimoTempo }
         }
         ultimoTempo = c.tempo
         return c
+      })
+
+      // Remover duplicados — manter apenas a primeira ocorrência de cada nome (posição mais baixa)
+      const vistosPorNome = new Set<string>()
+      cyclistsComTempos = cyclistsComTempos.filter(c => {
+        if (!c.nome?.trim()) return false
+        const key = c.nome.trim().toLowerCase()
+        if (vistosPorNome.has(key)) return false
+        vistosPorNome.add(key)
+        return true
       })
 
       const resultadoCorrigido = { ...data, cyclists: cyclistsComTempos }
