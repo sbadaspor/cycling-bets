@@ -112,7 +112,7 @@ export default function EtapasManager({ prova }: Props) {
     setPreenchidoDeAnterior(false)
     setErro(null)
     setSucesso(null)
-    setTemposMap((e.tempos_classificacao as Record<string, string>) ?? {})
+    setTemposMap(((e as unknown as Record<string, unknown>).tempos_classificacao as Record<string, string>) ?? {})
     setModoInput('manual')
     setModo('editar')
   }
@@ -463,9 +463,16 @@ export default function EtapasManager({ prova }: Props) {
                   setCamisolaMontanha(camisola_montanha)
                   setCamisolaJuventude(camisola_juventude)
 
-                  // Adicionais: apenas posições ALÉM do top (para display no site)
+                  // Conjunto de nomes já no top (normalizado) — para evitar duplicados nos adicionais
+                  const nomesNoTop = new Set(
+                    novas
+                      .filter(n => n?.trim())
+                      .map(n => n.trim().toLowerCase())
+                  )
+
+                  // Adicionais: apenas posições ALÉM do top E que não estejam já no top
                   const adicionaisFromImage = todosOsCiclistas
-                    .filter(c => c.posicao > numPos)
+                    .filter(c => c.posicao > numPos && c.nome?.trim() && !nomesNoTop.has(c.nome.trim().toLowerCase()))
                     .map(c => ({ posicao: c.posicao, nome: c.nome, tempo: c.tempo }))
                   setAdicionais(adicionaisFromImage)
 
