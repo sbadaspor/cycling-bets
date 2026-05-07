@@ -13,12 +13,18 @@ interface Props {
 }
 
 type Modo = 'lista' | 'comparar_um' | 'comparar_todos'
+type Vista = 'posicoes' | 'ciclistas'
 
 const CORES_JOGADOR = ['#c8f400', '#3b9eff', '#ff9500', '#a78bfa', '#ff4d6d']
+
+function nomeJogador(a: Aposta): string {
+  return a.perfil?.full_name?.trim() || a.perfil?.username || '—'
+}
 
 export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ultimaEtapa, userId, initialModo = 'lista' }: Props) {
   const [modo, setModo] = useState<Modo>(initialModo)
   const [apostaSelecionada, setApostaSelecionada] = useState<Aposta | null>(null)
+  const [vista, setVista] = useState<Vista>('posicoes')
 
   const categoria = apostaPrincipal.prova?.categoria
   const config = getConfigCategoria(categoria)
@@ -65,46 +71,33 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
     return ''
   }
 
-  // Para cada posição e cada aposta, determina se o ciclista é único nessa posição
-  // (apostado por esse jogador mas não pelos outros nessa zona — top10 ou top20)
-  function getUnicidade(apostas: Aposta[], apostaIdx: number, posIdx: number): {
-    unico: boolean      // apostado só por este jogador nesta zona (top-10 ou top-20)
-    exclusivo: boolean  // apostado só por este jogador em qualquer posição
-    corJogador: string
-  } {
-    const aposta = apostas[apostaIdx]
+  function getZona(posIdx: number): 'alto' | 'baixo' {
+    if (isSimples) return 'alto'
+    return posIdx < 10 ? 'alto' : 'baixo'
+  }
+
+  function getUnicidade(apostas: Aposta[], apostIdx: number, posIdx: number) {
+    const aposta = apostas[apostIdx]
     const nome = (aposta.apostas_top20[posIdx] ?? '').trim().toLowerCase()
     if (!nome) return { unico: false, exclusivo: false, corJogador: '' }
-
-    const posApostada = posIdx + 1
-    const zona = !isSimples && posApostada > 10 ? 'baixo' : 'alto'
-
-    // Verificar se algum outro jogador apostou este ciclista na mesma zona
+    const zona = getZona(posIdx)
     const outrosNaZona = apostas
-      .filter((_, i) => i !== apostaIdx)
-      .some(outra => {
-        return outra.apostas_top20.some((n, i) => {
-          if (!n) return false
-          const nZona = !isSimples && i + 1 > 10 ? 'baixo' : 'alto'
-          return n.trim().toLowerCase() === nome && nZona === zona
-        })
-      })
-
-    // Verificar se algum outro jogador apostou este ciclista em qualquer posição
+      .filter((_, i) => i !== apostIdx)
+      .some(outra => outra.apostas_top20.some((n, i) => n?.trim().toLowerCase() === nome && getZona(i) === zona))
     const outrosEmQualquerLugar = apostas
-      .filter((_, i) => i !== apostaIdx)
+      .filter((_, i) => i !== apostIdx)
       .some(outra => outra.apostas_top20.some(n => n?.trim().toLowerCase() === nome))
-
-    const corJogador = CORES_JOGADOR[apostaIdx % CORES_JOGADOR.length]
-
     return {
       unico: !outrosNaZona,
       exclusivo: !outrosEmQualquerLugar,
-      corJogador,
+      corJogador: CORES_JOGADOR[apostIdx % CORES_JOGADOR.length],
     }
   }
 
-  function renderComparacao(apostas: Aposta[]) {
+  // ============================================================
+  // VISTA 1 — Por Posições (tabela original melhorada)
+  // ============================================================
+  function renderVistaPosicoes(apostas: Aposta[]) {
     const cols = apostas.length
     const gridCols = `36px repeat(${cols}, 1fr)${ultimaEtapa ? ' 72px' : ''}`
 
@@ -116,26 +109,23 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
       textAlign: 'center' as const,
     }
 
-    // Contar diferenciais por jogador (ciclistas únicos na zona)
     const contadorUnicos = apostas.map((_, apostIdx) => {
       let count = 0
       for (let posIdx = 0; posIdx < numPos; posIdx++) {
-        const { unico } = getUnicidade(apostas, apostIdx, posIdx)
-        if (unico) count++
+        if (getUnicidade(apostas, apostIdx, posIdx).unico) count++
       }
       return count
     })
 
     return (
       <div className="card-flush" style={{ overflowX: 'auto' }}>
-
-        {/* Legenda de diferenciais */}
+        {/* Legenda diferenciais */}
         <div style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Diferenciais:</span>
           {apostas.map((a, i) => (
             <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
               <div style={{ width: 3, height: 14, borderRadius: 2, background: CORES_JOGADOR[i % CORES_JOGADOR.length] }} />
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>{a.perfil?.username ?? '—'}</span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>{nomeJogador(a)}</span>
               <span style={{
                 fontSize: '0.65rem', fontWeight: 700, padding: '1px 6px', borderRadius: '999px',
                 background: contadorUnicos[i] > 0 ? `${CORES_JOGADOR[i % CORES_JOGADOR.length]}22` : 'rgba(255,255,255,0.05)',
@@ -145,9 +135,6 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
               </span>
             </div>
           ))}
-          <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginLeft: 'auto' }}>
-            borda colorida = ciclista exclusivo de um jogador nessa zona
-          </span>
         </div>
 
         {/* Cabeçalho */}
@@ -157,14 +144,13 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
             <div key={a.id} style={{ ...thStyle, color: a.user_id === userId ? CORES_JOGADOR[0] : 'var(--text)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: CORES_JOGADOR[i % CORES_JOGADOR.length], flexShrink: 0 }} />
-                {a.perfil?.username ?? '—'}{a.user_id === userId ? ' 👤' : ''}
+                {nomeJogador(a)}{a.user_id === userId ? ' 👤' : ''}
               </div>
             </div>
           ))}
           {ultimaEtapa && <div style={{ ...thStyle, color: 'var(--lime)' }}>Real</div>}
         </div>
 
-        {/* Separador de zona top-10 / top-20 */}
         <div style={{ minWidth: cols === 3 ? 420 : 280 }}>
           {!isSimples && (
             <div style={{ padding: '0.2rem 0.5rem', background: 'rgba(200,244,0,0.04)', borderBottom: '1px solid var(--border)' }}>
@@ -177,8 +163,6 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
             const realNome = resultado[posIdx] ?? ''
             const picks = apostas.map(a => (a.apostas_top20[posIdx] ?? '').trim())
             const todosIguais = picks.every(p => p && p.toLowerCase() === picks[0].toLowerCase())
-
-            // Separador entre top-10 e top-20
             const isSeparador = !isSimples && posApostada === 11
 
             return (
@@ -201,60 +185,40 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
                   }}>
                     {posApostada}
                   </div>
-
                   {apostas.map((a, apostIdx) => {
                     const nome = a.apostas_top20[posIdx] ?? ''
                     const bg = getPontosCor(nome, posApostada)
                     const { unico, exclusivo, corJogador } = getUnicidade(apostas, apostIdx, posIdx)
-
                     return (
                       <div key={a.id} style={{
                         padding: '0.35rem 0.5rem',
-                        borderLeft: '1px solid var(--border)',
+                        borderLeft: unico ? `3px solid ${corJogador}` : '1px solid var(--border)',
                         background: bg || undefined,
-                        // Borda esquerda colorida se é diferencial desta zona
-                        borderLeftWidth: unico ? 3 : 1,
-                        borderLeftColor: unico ? corJogador : 'var(--border)',
-                        display: 'flex', alignItems: 'center', gap: '0.3rem',
-                        minWidth: 0,
+                        display: 'flex', alignItems: 'center', gap: '0.3rem', minWidth: 0,
                       }}>
                         <span style={{
                           fontSize: '0.78rem',
                           color: nome ? 'var(--text)' : 'var(--text-sub)',
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          flex: 1,
-                          fontWeight: exclusivo ? 700 : 400,
+                          flex: 1, fontWeight: exclusivo ? 700 : 400,
                         }}>
                           {nome || '—'}
                         </span>
                         {exclusivo && nome && (
-                          <span style={{
-                            fontSize: '0.55rem', fontWeight: 700, padding: '1px 4px', borderRadius: '3px',
-                            background: `${corJogador}22`, color: corJogador, flexShrink: 0,
-                            textTransform: 'uppercase', letterSpacing: '0.04em',
-                          }}>
-                            só {a.perfil?.username?.slice(0, 4) ?? 'eu'}
+                          <span style={{ fontSize: '0.55rem', fontWeight: 700, padding: '1px 4px', borderRadius: '3px', background: `${corJogador}22`, color: corJogador, flexShrink: 0, textTransform: 'uppercase' }}>
+                            só {nomeJogador(a).split(' ')[0]}
                           </span>
                         )}
                         {unico && !exclusivo && nome && (
-                          <span style={{
-                            fontSize: '0.55rem', fontWeight: 700, padding: '1px 4px', borderRadius: '3px',
-                            background: 'rgba(255,200,0,0.15)', color: '#ffc800', flexShrink: 0,
-                            textTransform: 'uppercase', letterSpacing: '0.04em',
-                          }}>
+                          <span style={{ fontSize: '0.55rem', fontWeight: 700, padding: '1px 4px', borderRadius: '3px', background: 'rgba(255,200,0,0.15)', color: '#ffc800', flexShrink: 0, textTransform: 'uppercase' }}>
                             zona
                           </span>
                         )}
                       </div>
                     )
                   })}
-
                   {ultimaEtapa && (
-                    <div style={{
-                      padding: '0.45rem 0.4rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--lime)',
-                      borderLeft: '1px solid var(--border)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
+                    <div style={{ padding: '0.45rem 0.4rem', fontSize: '0.72rem', fontWeight: 600, color: 'var(--lime)', borderLeft: '1px solid var(--border)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {realNome || '—'}
                     </div>
                   )}
@@ -271,22 +235,15 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
               const realVal = getCamisolaReal(key)
               const picks = apostas.map(a => getCamisola(a, key).trim().toLowerCase())
               const todosIguais = picks.every(p => p && p === picks[0])
-
               return (
-                <div key={key} style={{
-                  display: 'grid', gridTemplateColumns: gridCols,
-                  borderBottom: key !== 'juventude' ? '1px solid var(--border)' : 'none',
-                  background: 'var(--surface-2)',
-                }}>
+                <div key={key} style={{ display: 'grid', gridTemplateColumns: gridCols, borderBottom: key !== 'juventude' ? '1px solid var(--border)' : 'none', background: 'var(--surface-2)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', padding: '0.45rem 0.25rem' }}>
                     {label.split(' ')[0]}
                   </div>
                   {apostas.map((a, apostIdx) => {
                     const val = getCamisola(a, key)
                     const acertou = ultimaEtapa && val.trim() && val.trim().toLowerCase() === realVal.trim().toLowerCase()
-                    const valLower = val.trim().toLowerCase()
-                    const unicoCamisola = !todosIguais && val.trim() && picks.filter(p => p === valLower).length === 1
-
+                    const unicoCamisola = !todosIguais && val.trim() && picks.filter(p => p === val.trim().toLowerCase()).length === 1
                     return (
                       <div key={a.id} style={{
                         padding: '0.45rem 0.5rem', fontSize: '0.75rem',
@@ -297,13 +254,9 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         display: 'flex', alignItems: 'center', gap: '0.3rem',
                       }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{val || '—'}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{val || '—'}</span>
                         {unicoCamisola && val && (
-                          <span style={{
-                            fontSize: '0.55rem', fontWeight: 700, padding: '1px 4px', borderRadius: '3px',
-                            background: `${CORES_JOGADOR[apostIdx % CORES_JOGADOR.length]}22`,
-                            color: CORES_JOGADOR[apostIdx % CORES_JOGADOR.length], flexShrink: 0,
-                          }}>só</span>
+                          <span style={{ fontSize: '0.55rem', fontWeight: 700, padding: '1px 4px', borderRadius: '3px', background: `${CORES_JOGADOR[apostIdx % CORES_JOGADOR.length]}22`, color: CORES_JOGADOR[apostIdx % CORES_JOGADOR.length], flexShrink: 0 }}>só</span>
                         )}
                       </div>
                     )
@@ -320,12 +273,7 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
         )}
 
         {/* Totais */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: gridCols,
-          borderTop: '2px solid var(--border)',
-          background: 'rgba(200,244,0,0.04)',
-          minWidth: cols === 3 ? 420 : 280,
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: gridCols, borderTop: '2px solid var(--border)', background: 'rgba(200,244,0,0.04)', minWidth: cols === 3 ? 420 : 280 }}>
           <div style={{ padding: '0.7rem 0.25rem', fontSize: '0.6rem', color: 'var(--text-sub)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>pts</div>
           {apostas.map((a) => (
             <div key={a.id} style={{ padding: '0.7rem 0.5rem', borderLeft: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -339,9 +287,255 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
     )
   }
 
+  // ============================================================
+  // VISTA 2 — Por Ciclistas (novo)
+  // Para cada ciclista único entre todas as apostas, mostra
+  // em que posição e zona cada jogador o colocou.
+  // ============================================================
+  function renderVistaCiclistas(apostas: Aposta[]) {
+    // Recolher todos os ciclistas únicos preservando a ordem de aparecimento
+    type EntradaCiclista = {
+      nome: string
+      nomeLower: string
+      // Para cada aposta: posição apostada (1-based) ou null
+      posicoes: (number | null)[]
+    }
+
+    const mapaConhecidos = new Map<string, EntradaCiclista>()
+    const ordem: string[] = []
+
+    for (let posIdx = 0; posIdx < numPos; posIdx++) {
+      for (const aposta of apostas) {
+        const nome = (aposta.apostas_top20[posIdx] ?? '').trim()
+        if (!nome) continue
+        const key = nome.toLowerCase()
+        if (!mapaConhecidos.has(key)) {
+          mapaConhecidos.set(key, { nome, nomeLower: key, posicoes: apostas.map(() => null) })
+          ordem.push(key)
+        }
+      }
+    }
+
+    // Preencher posições
+    for (let posIdx = 0; posIdx < numPos; posIdx++) {
+      apostas.forEach((aposta, apostIdx) => {
+        const nome = (aposta.apostas_top20[posIdx] ?? '').trim()
+        if (!nome) return
+        const entry = mapaConhecidos.get(nome.toLowerCase())
+        if (entry) entry.posicoes[apostIdx] = posIdx + 1
+      })
+    }
+
+    const ciclistas = ordem.map(k => mapaConhecidos.get(k)!)
+
+    // Separar em zona alta e baixa
+    const ciclistasAlto = ciclistas.filter(c =>
+      c.posicoes.some(p => p !== null && (isSimples ? true : p <= 10))
+    )
+    const ciclistasBaixo = !isSimples
+      ? ciclistas.filter(c =>
+          !ciclistasAlto.includes(c) || c.posicoes.some(p => p !== null && p > 10)
+        ).filter(c => c.posicoes.some(p => p !== null && p > 10))
+      : []
+
+    const cols = apostas.length
+    const gridCols = `1fr ${apostas.map(() => '56px').join(' ')}${ultimaEtapa ? ' 56px' : ''}`
+
+    function renderLinhaCiclista(c: EntradaCiclista, idx: number, total: number) {
+      const posReal = ultimaEtapa
+        ? ultimaEtapa.classificacao_geral_top20.findIndex(n => n?.trim().toLowerCase() === c.nomeLower) + 1 || null
+        : null
+
+      // Determinar se há divergência de zona entre jogadores
+      const zonasPresentes = new Set(c.posicoes.filter(Boolean).map(p => (isSimples || p! <= 10) ? 'alto' : 'baixo'))
+      const haZonaDivergente = zonasPresentes.size > 1
+
+      // Quantos jogadores apostaram neste ciclista
+      const numApostaram = c.posicoes.filter(p => p !== null).length
+      const exclusivo = numApostaram === 1
+
+      return (
+        <div key={c.nomeLower} style={{
+          display: 'grid', gridTemplateColumns: gridCols,
+          borderBottom: idx < total - 1 ? '1px solid var(--border)' : 'none',
+          background: haZonaDivergente ? 'rgba(255,200,0,0.04)' : exclusivo ? 'rgba(255,255,255,0.01)' : 'rgba(68,136,255,0.04)',
+          alignItems: 'center',
+        }}>
+          {/* Nome do ciclista */}
+          <div style={{ padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            {haZonaDivergente && (
+              <span title="Apostado em zonas diferentes" style={{ fontSize: '0.65rem', color: '#ffc800', fontWeight: 700, flexShrink: 0 }}>⚡</span>
+            )}
+            <span style={{
+              fontSize: '0.82rem', fontWeight: exclusivo ? 700 : 500,
+              color: posReal ? 'var(--text)' : 'var(--text-dim)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {c.nome}
+            </span>
+            {posReal && (
+              <span style={{ fontSize: '0.65rem', color: posReal <= 10 ? 'var(--lime)' : 'var(--text-sub)', fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 800, flexShrink: 0 }}>
+                #{posReal}
+              </span>
+            )}
+          </div>
+
+          {/* Posição de cada jogador */}
+          {c.posicoes.map((pos, apostIdx) => {
+            if (pos === null) {
+              return (
+                <div key={apostIdx} style={{ padding: '0.5rem 0.25rem', textAlign: 'center', borderLeft: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.12)', fontWeight: 400 }}>—</span>
+                </div>
+              )
+            }
+            const zona = isSimples ? 'alto' : pos <= 10 ? 'alto' : 'baixo'
+            const cor = CORES_JOGADOR[apostIdx % CORES_JOGADOR.length]
+            const bgZona = zona === 'alto' ? `${cor}18` : `${cor}0d`
+
+            return (
+              <div key={apostIdx} style={{
+                padding: '0.4rem 0.25rem', textAlign: 'center',
+                borderLeft: `2px solid ${cor}`,
+                background: bgZona,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px',
+              }}>
+                <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1rem', fontWeight: 900, color: cor, lineHeight: 1 }}>
+                  {pos}º
+                </span>
+                <span style={{ fontSize: '0.55rem', fontWeight: 700, color: cor, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {zona === 'alto' ? (isSimples ? 'top' : 't10') : 't20'}
+                </span>
+              </div>
+            )
+          })}
+
+          {/* Resultado real */}
+          {ultimaEtapa && (
+            <div style={{ padding: '0.5rem 0.25rem', textAlign: 'center', borderLeft: '1px solid var(--border)' }}>
+              {posReal ? (
+                <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '0.9rem', fontWeight: 800, color: posReal <= 10 ? 'var(--lime)' : 'var(--text-sub)' }}>
+                  {posReal}º
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.15)' }}>—</span>
+              )}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <div className="card-flush" style={{ overflowX: 'auto' }}>
+        {/* Legenda */}
+        <div style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          {apostas.map((a, i) => (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <div style={{ width: 3, height: 16, borderRadius: 2, background: CORES_JOGADOR[i % CORES_JOGADOR.length] }} />
+              <span style={{ fontSize: '0.72rem', color: CORES_JOGADOR[i % CORES_JOGADOR.length], fontWeight: 600 }}>
+                {nomeJogador(a)}{a.user_id === userId ? ' 👤' : ''}
+              </span>
+            </div>
+          ))}
+          <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)', marginLeft: 'auto' }}>
+            ⚡ = zonas diferentes
+          </span>
+        </div>
+
+        {/* Cabeçalho */}
+        <div style={{ display: 'grid', gridTemplateColumns: gridCols, borderBottom: '2px solid var(--border)', background: 'var(--surface-2)' }}>
+          <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ciclista</div>
+          {apostas.map((a, i) => (
+            <div key={a.id} style={{ padding: '0.5rem 0.25rem', borderLeft: `2px solid ${CORES_JOGADOR[i % CORES_JOGADOR.length]}`, textAlign: 'center', fontSize: '0.65rem', fontWeight: 700, color: CORES_JOGADOR[i % CORES_JOGADOR.length], textTransform: 'uppercase', letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {nomeJogador(a).split(' ')[0]}
+            </div>
+          ))}
+          {ultimaEtapa && (
+            <div style={{ padding: '0.5rem 0.25rem', borderLeft: '1px solid var(--border)', textAlign: 'center', fontSize: '0.65rem', fontWeight: 700, color: 'var(--lime)', textTransform: 'uppercase' }}>Real</div>
+          )}
+        </div>
+
+        {/* Zona alto */}
+        {ciclistasAlto.length > 0 && (
+          <>
+            <div style={{ padding: '0.2rem 0.75rem', background: 'rgba(200,244,0,0.04)', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--lime)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>▲ Top {isSimples ? numPos : 10} — {isSimples ? '1-2' : '3'}pts por acerto</span>
+            </div>
+            {ciclistasAlto.map((c, i) => renderLinhaCiclista(c, i, ciclistasAlto.length))}
+          </>
+        )}
+
+        {/* Zona baixo */}
+        {ciclistasBaixo.length > 0 && (
+          <>
+            <div style={{ padding: '0.2rem 0.75rem', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>▼ Top 11–20 — 2pts por acerto</span>
+            </div>
+            {ciclistasBaixo.map((c, i) => renderLinhaCiclista(c, i, ciclistasBaixo.length))}
+          </>
+        )}
+
+        {/* Camisolas */}
+        {config.temCamisolas && (
+          <div style={{ borderTop: '2px solid var(--border)' }}>
+            <div style={{ padding: '0.2rem 0.75rem', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-sub)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Camisolas — 1pt cada</span>
+            </div>
+            {camisolaKeys.map(({ key, label }) => {
+              const realVal = getCamisolaReal(key)
+              const vals = apostas.map(a => getCamisola(a, key).trim())
+              const gridColsCam = `1fr ${apostas.map(() => '56px').join(' ')}${ultimaEtapa ? ' 56px' : ''}`
+              return (
+                <div key={key} style={{ display: 'grid', gridTemplateColumns: gridColsCam, borderBottom: key !== 'juventude' ? '1px solid var(--border)' : 'none', background: 'var(--surface-2)', alignItems: 'center' }}>
+                  <div style={{ padding: '0.45rem 0.75rem', fontSize: '0.75rem', color: 'var(--text-dim)' }}>{label}</div>
+                  {vals.map((val, apostIdx) => {
+                    const acertou = ultimaEtapa && val && val.toLowerCase() === realVal.toLowerCase()
+                    const cor = CORES_JOGADOR[apostIdx % CORES_JOGADOR.length]
+                    return (
+                      <div key={apostIdx} style={{
+                        padding: '0.45rem 0.25rem', textAlign: 'center',
+                        borderLeft: val ? `2px solid ${cor}` : '1px solid var(--border)',
+                        background: acertou ? 'rgba(68,204,136,0.12)' : val ? `${cor}0d` : undefined,
+                        overflow: 'hidden',
+                      }}>
+                        <span style={{ fontSize: '0.68rem', fontWeight: acertou ? 700 : 500, color: acertou ? 'var(--green)' : val ? cor : 'rgba(255,255,255,0.15)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {val || '—'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                  {ultimaEtapa && (
+                    <div style={{ padding: '0.45rem 0.25rem', borderLeft: '1px solid var(--border)', textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--lime)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{realVal || '—'}</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Totais */}
+        <div style={{ display: 'grid', gridTemplateColumns: gridCols, borderTop: '2px solid var(--border)', background: 'rgba(200,244,0,0.04)' }}>
+          <div style={{ padding: '0.7rem 0.75rem', fontSize: '0.72rem', color: 'var(--text-sub)', fontWeight: 700 }}>Total</div>
+          {apostas.map((a, i) => (
+            <div key={a.id} style={{ padding: '0.6rem 0.25rem', borderLeft: `2px solid ${CORES_JOGADOR[i % CORES_JOGADOR.length]}`, display: 'flex', flexDirection: 'column', alignItems: 'center', background: `${CORES_JOGADOR[i % CORES_JOGADOR.length]}0d` }}>
+              <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.4rem', fontWeight: 900, color: CORES_JOGADOR[i % CORES_JOGADOR.length], lineHeight: 1 }}>{a.pontos_total}</span>
+              <span style={{ fontSize: '0.55rem', color: 'var(--text-sub)' }}>pts</span>
+            </div>
+          ))}
+          {ultimaEtapa && <div style={{ borderLeft: '1px solid var(--border)' }} />}
+        </div>
+      </div>
+    )
+  }
+
+  // ============================================================
+  // RENDER PRINCIPAL
+  // ============================================================
   if (modo === 'lista') {
     const todasOrdenadas = [apostaPrincipal, ...outrasApostas].sort((a, b) => b.pontos_total - a.pontos_total)
-
     return (
       <div className="card-flush animate-fade-up">
         <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
@@ -350,15 +544,7 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
             <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Outras Apostas</h2>
           </div>
           {outrasApostas.length > 0 && (
-            <button
-              onClick={() => setModo('comparar_todos')}
-              style={{
-                padding: '0.45rem 0.875rem', borderRadius: '0.625rem', flexShrink: 0,
-                fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
-                border: '1px solid var(--lime)', background: 'rgba(200,244,0,0.1)',
-                color: 'var(--lime)', fontFamily: 'DM Sans, sans-serif',
-              }}
-            >
+            <button onClick={() => setModo('comparar_todos')} style={{ padding: '0.45rem 0.875rem', borderRadius: '0.625rem', flexShrink: 0, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', border: '1px solid var(--lime)', background: 'rgba(200,244,0,0.1)', color: 'var(--lime)', fontFamily: 'DM Sans, sans-serif' }}>
               ⚡ Comparar todos
             </button>
           )}
@@ -368,23 +554,14 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
             const rank = todasOrdenadas.findIndex(x => x.id === a.id) + 1
             const medals = ['🥇', '🥈', '🥉']
             return (
-              <button
-                key={a.id}
-                onClick={() => { setApostaSelecionada(a); setModo('comparar_um') }}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem',
-                  padding: '0.75rem 1.25rem',
-                  borderBottom: i < outrasApostas.length - 1 ? '1px solid var(--border)' : 'none',
-                  cursor: 'pointer', background: 'none', border: 'none', textAlign: 'left',
-                  transition: 'background 0.12s',
-                }}
+              <button key={a.id} onClick={() => { setApostaSelecionada(a); setModo('comparar_um') }}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: i < outrasApostas.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: 'none', border: 'none', textAlign: 'left', transition: 'background 0.12s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}
-              >
+                onMouseLeave={e => (e.currentTarget.style.background = '')}>
                 <span style={{ fontSize: rank <= 3 ? '1rem' : '0.78rem', fontWeight: 800, color: rank <= 3 ? 'var(--lime)' : 'var(--text-dim)', fontFamily: 'Barlow Condensed, sans-serif', width: 28, textAlign: 'center', flexShrink: 0 }}>
                   {medals[rank - 1] ?? `#${rank}`}
                 </span>
-                <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)', textAlign: 'left' }}>{a.perfil?.username}</span>
+                <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)', textAlign: 'left' }}>{nomeJogador(a)}</span>
                 <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', flexShrink: 0 }}>comparar →</span>
                 <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.15rem', fontWeight: 800, color: rank <= 3 ? 'var(--lime)' : 'var(--text-dim)', flexShrink: 0 }}>
                   {a.pontos_total} <span style={{ fontSize: '0.65rem', color: 'var(--text-sub)' }}>pts</span>
@@ -403,44 +580,40 @@ export default function ComparacaoApostas({ apostaPrincipal, outrasApostas, ulti
 
   const titulo = modo === 'comparar_todos'
     ? 'Todos os jogadores'
-    : `${apostaPrincipal.perfil?.username ?? 'Tu'} vs ${apostaSelecionada?.perfil?.username ?? ''}`
+    : `${nomeJogador(apostaPrincipal)} vs ${nomeJogador(apostaSelecionada!)}`
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="animate-fade-up">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
         <div>
           <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>⚡ Comparação</p>
           <h2 className="section-title" style={{ fontSize: '1.2rem' }}>{titulo}</h2>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Toggle de vista */}
+          <div style={{ display: 'flex', borderRadius: '0.5rem', overflow: 'hidden', border: '1px solid var(--border)' }}>
+            <button onClick={() => setVista('posicoes')} style={{ padding: '0.35rem 0.7rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', border: 'none', background: vista === 'posicoes' ? 'rgba(200,244,0,0.15)' : 'var(--surface-2)', color: vista === 'posicoes' ? 'var(--lime)' : 'var(--text-dim)', fontFamily: 'DM Sans, sans-serif' }}>
+              📋 Posições
+            </button>
+            <button onClick={() => setVista('ciclistas')} style={{ padding: '0.35rem 0.7rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', border: 'none', borderLeft: '1px solid var(--border)', background: vista === 'ciclistas' ? 'rgba(200,244,0,0.15)' : 'var(--surface-2)', color: vista === 'ciclistas' ? 'var(--lime)' : 'var(--text-dim)', fontFamily: 'DM Sans, sans-serif' }}>
+              🚴 Ciclistas
+            </button>
+          </div>
           {modo === 'comparar_um' && outrasApostas.length > 1 && (
-            <button
-              onClick={() => setModo('comparar_todos')}
-              style={{
-                padding: '0.4rem 0.75rem', borderRadius: '0.625rem',
-                fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
-                border: '1px solid var(--lime)', background: 'rgba(200,244,0,0.1)',
-                color: 'var(--lime)', fontFamily: 'DM Sans, sans-serif',
-              }}
-            >
+            <button onClick={() => setModo('comparar_todos')} style={{ padding: '0.4rem 0.75rem', borderRadius: '0.625rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', border: '1px solid var(--lime)', background: 'rgba(200,244,0,0.1)', color: 'var(--lime)', fontFamily: 'DM Sans, sans-serif' }}>
               ⚡ Todos
             </button>
           )}
-          <button
-            onClick={() => { setModo('lista'); setApostaSelecionada(null) }}
-            style={{
-              padding: '0.4rem 0.75rem', borderRadius: '0.625rem',
-              fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer',
-              border: '1px solid var(--border)', background: 'var(--surface-2)',
-              color: 'var(--text-dim)', fontFamily: 'DM Sans, sans-serif',
-            }}
-          >
+          <button onClick={() => { setModo('lista'); setApostaSelecionada(null) }} style={{ padding: '0.4rem 0.75rem', borderRadius: '0.625rem', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-dim)', fontFamily: 'DM Sans, sans-serif' }}>
             ← Voltar
           </button>
         </div>
       </div>
 
-      {renderComparacao(apostasParaComparar)}
+      {vista === 'posicoes'
+        ? renderVistaPosicoes(apostasParaComparar)
+        : renderVistaCiclistas(apostasParaComparar)
+      }
     </div>
   )
 }
