@@ -25,26 +25,28 @@ async function checkAdmin() {
 
 // ============================================================
 // Helper: recalcular pontos de todas as apostas com base na
-// etapa mais recente da prova
+// última etapa inserida. A pontuação não é cumulativa —
+// o que vale são sempre os pontos da etapa mais recente.
 // ============================================================
 async function recalcularPontosProva(
   supabase: Awaited<ReturnType<typeof createClient>>,
   provaId: string
 ) {
-  const { data: ultimaEtapa } = await supabase
-    .from('etapas_resultados')
-    .select('*')
-    .eq('prova_id', provaId)
-    .order('numero_etapa', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  // Buscar categoria da prova
-  const { data: prova } = await supabase
-    .from('provas')
-    .select('categoria')
-    .eq('id', provaId)
-    .single()
+  // Buscar última etapa e categoria da prova em paralelo
+  const [{ data: ultimaEtapa }, { data: prova }] = await Promise.all([
+    supabase
+      .from('etapas_resultados')
+      .select('*')
+      .eq('prova_id', provaId)
+      .order('numero_etapa', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('provas')
+      .select('categoria')
+      .eq('id', provaId)
+      .single(),
+  ])
 
   const categoria: CategoriaProvaTipo | undefined = prova?.categoria ?? undefined
 
@@ -55,23 +57,23 @@ async function recalcularPontosProva(
 
   if (apErr) throw new Error(apErr.message)
 
+  // Se não há etapas, repor pontos a zero
   if (!ultimaEtapa) {
-    for (const a of apostas ?? []) {
-      await supabase
-        .from('apostas')
-        .update({
-          pontos_total: 0,
-          pontos_top10: 0,
-          pontos_top20: 0,
-          pontos_camisolas: 0,
-          acertos_exatos: 0,
-          acertos_exatos_top10: 0,
-          acertos_exatos_top20: 0,
-          acertos_camisolas: 0,
-          calculada: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', a.id)
+    const updates = (apostas ?? []).map(a => ({
+      id: a.id,
+      pontos_total: 0,
+      pontos_top10: 0,
+      pontos_top20: 0,
+      pontos_camisolas: 0,
+      acertos_exatos: 0,
+      acertos_exatos_top10: 0,
+      acertos_exatos_top20: 0,
+      acertos_camisolas: 0,
+      calculada: false,
+      updated_at: new Date().toISOString(),
+    }))
+    if (updates.length > 0) {
+      await supabase.from('apostas').upsert(updates)
     }
     return { calculadas: 0, total: apostas?.length ?? 0 }
   }
@@ -82,8 +84,8 @@ async function recalcularPontosProva(
     juventude: ultimaEtapa.camisola_juventude ?? '',
   }
 
-  let calculadas = 0
-  for (const aposta of apostas ?? []) {
+  // Calcular todos os pontos e fazer upsert em batch (sem loop de roundtrips)
+  const updates = (apostas ?? []).map(aposta => {
     const apostaCamisolas = {
       sprint: aposta.camisola_sprint ?? '',
       montanha: aposta.camisola_montanha ?? '',
@@ -98,67 +100,27 @@ async function recalcularPontosProva(
       categoria
     )
 
-    const { error: upErr } = await supabase
-      .from('apostas')
-      .update({
-        pontos_total: calc.pontos_total,
-        pontos_top10: calc.pontos_top10,
-        pontos_top20: calc.pontos_top20,
-        pontos_camisolas: calc.pontos_camisolas,
-        acertos_exatos: calc.acertos_exatos,
-        acertos_exatos_top10: calc.acertos_exatos_top10,
-        acertos_exatos_top20: calc.acertos_exatos_top20,
-        acertos_camisolas: calc.acertos_camisolas,
-        calculada: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', aposta.id)
+    return {
+      id: aposta.id,
+      pontos_total: calc.pontos_total,
+      pontos_top10: calc.pontos_top10,
+      pontos_top20: calc.pontos_top20,
+      pontos_camisolas: calc.pontos_camisolas,
+      acertos_exatos: calc.acertos_exatos,
+      acertos_exatos_top10: calc.acertos_exatos_top10,
+      acertos_exatos_top20: calc.acertos_exatos_top20,
+      acertos_camisolas: calc.acertos_camisolas,
+      calculada: true,
+      updated_at: new Date().toISOString(),
+    }
+  })
 
-    if (!upErr) calculadas++
+  if (updates.length > 0) {
+    const { error: upsertErr } = await supabase.from('apostas').upsert(updates)
+    if (upsertErr) throw new Error(upsertErr.message)
   }
 
-  return { calculadas, total: apostas?.length ?? 0, etapa: ultimaEtapa.numero_etapa }
-}
-
-// ============================================================
-// Helper: sincronizar etapa final com a tabela resultados_reais
-// ============================================================
-async function sincronizarResultadoFinal(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  provaId: string,
-  userId: string
-) {
-  const { data: etapaFinal } = await supabase
-    .from('etapas_resultados')
-    .select('*')
-    .eq('prova_id', provaId)
-    .eq('is_final', true)
-    .maybeSingle()
-
-  if (!etapaFinal) {
-    await supabase
-      .from('provas')
-      .update({ status: 'aberta', updated_at: new Date().toISOString() })
-      .eq('id', provaId)
-    return
-  }
-
-  await supabase.from('resultados_reais').upsert(
-    {
-      prova_id: provaId,
-      resultado_top20: etapaFinal.classificacao_geral_top20,
-      camisola_sprint: etapaFinal.camisola_sprint || null,
-      camisola_montanha: etapaFinal.camisola_montanha || null,
-      camisola_juventude: etapaFinal.camisola_juventude || null,
-      inserido_por: userId,
-    },
-    { onConflict: 'prova_id' }
-  )
-
-  await supabase
-    .from('provas')
-    .update({ status: 'finalizada', updated_at: new Date().toISOString() })
-    .eq('id', provaId)
+  return { calculadas: updates.length, total: updates.length, etapa: ultimaEtapa.numero_etapa }
 }
 
 // ============================================================
@@ -211,13 +173,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'prova_id, numero_etapa e data_etapa são obrigatórios.' }, { status: 400 })
   }
   if (!Array.isArray(classificacao_geral_top20) || classificacao_geral_top20.length !== 20) {
-    return NextResponse.json({ error: 'classificacao_geral_top20 tem de ter exatamente 20 posições (preenche só as usadas pela categoria).' }, { status: 400 })
+    return NextResponse.json({ error: 'classificacao_geral_top20 tem de ter exatamente 20 posições.' }, { status: 400 })
   }
 
   // Buscar categoria para saber quantas posições validar
   const { data: prova } = await supabase
     .from('provas')
-    .select('categoria')
+    .select('categoria, nome')
     .eq('id', prova_id)
     .single()
 
@@ -231,7 +193,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Validar posições adicionais (só fazem sentido para top-20)
+  // Validar posições adicionais
   let posicoesAdicionaisLimpas: { posicao: number; nome: string }[] = []
   if (Array.isArray(posicoes_adicionais)) {
     const posVistas = new Set<number>()
@@ -262,6 +224,7 @@ export async function POST(req: NextRequest) {
     posicoesAdicionaisLimpas.sort((a, b) => a.posicao - b.posicao)
   }
 
+  // Se esta etapa é marcada como final, limpar is_final nas restantes
   if (is_final) {
     await supabase
       .from('etapas_resultados')
@@ -270,6 +233,7 @@ export async function POST(req: NextRequest) {
       .neq('numero_etapa', numero_etapa)
   }
 
+  // Gravar / actualizar etapa
   const { error: upErr } = await supabase
     .from('etapas_resultados')
     .upsert(
@@ -292,6 +256,7 @@ export async function POST(req: NextRequest) {
 
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
 
+  // Recalcular pontos com base nesta etapa (a mais recente passa a ser a fonte de verdade)
   let recalc
   try {
     recalc = await recalcularPontosProva(supabase, prova_id)
@@ -300,15 +265,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 
-  await sincronizarResultadoFinal(supabase, prova_id, userId)
+  // Actualizar status da prova
+  // - is_final=true → finalizada
+  // - is_final=false mas há etapas → fechada (apostas bloqueadas, corrida em curso)
+  const novoStatus = is_final ? 'finalizada' : 'fechada'
+  await supabase
+    .from('provas')
+    .update({ status: novoStatus, updated_at: new Date().toISOString() })
+    .eq('id', prova_id)
 
-  // Notificação automática para TODAS as etapas (não só finais)
+  // Notificações (best-effort)
   try {
     const { sendNotificationsToAll } = await import('@/lib/sendNotifications')
-    const { data: provaInfo } = await supabase
-      .from('provas').select('nome, categoria').eq('id', prova_id).single()
-    const nomeProva = provaInfo?.nome ?? 'uma prova'
-    const isGrandeVolta = provaInfo?.categoria === 'grande_volta' || provaInfo?.categoria === 'prova_semana'
+    const nomeProva = prova?.nome ?? 'uma prova'
+    const isGrandeVolta = categoria === 'grande_volta' || categoria === 'prova_semana'
 
     if (is_final) {
       await sendNotificationsToAll(
@@ -324,13 +294,14 @@ export async function POST(req: NextRequest) {
       )
     }
   } catch {
-    // Notificações são best-effort — não bloquear a resposta
+    // Notificações não bloqueiam a resposta
   }
 
   return NextResponse.json({
     success: true,
     apostas_calculadas: recalc.calculadas,
     total_apostas: recalc.total,
+    etapa: numero_etapa,
     is_final: !!is_final,
   })
 }
@@ -341,7 +312,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const auth = await checkAdmin()
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
-  const { supabase, userId } = auth
+  const { supabase } = auth
 
   const provaId = req.nextUrl.searchParams.get('prova_id')
   const numeroEtapaStr = req.nextUrl.searchParams.get('numero_etapa')
@@ -351,6 +322,7 @@ export async function DELETE(req: NextRequest) {
   }
   const numeroEtapa = parseInt(numeroEtapaStr, 10)
 
+  // Só permite apagar a última etapa inserida
   const { data: ultima } = await supabase
     .from('etapas_resultados')
     .select('numero_etapa')
@@ -374,8 +346,31 @@ export async function DELETE(req: NextRequest) {
 
   if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 })
 
-  await sincronizarResultadoFinal(supabase, provaId, userId)
+  // Recalcular com base na nova última etapa (ou repor a zero se não há mais etapas)
   const recalc = await recalcularPontosProva(supabase, provaId)
+
+  // Repor status da prova conforme o estado actual das etapas
+  const { data: novaUltima } = await supabase
+    .from('etapas_resultados')
+    .select('is_final')
+    .eq('prova_id', provaId)
+    .order('numero_etapa', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  let novoStatus: string
+  if (!novaUltima) {
+    novoStatus = 'aberta'
+  } else if (novaUltima.is_final) {
+    novoStatus = 'finalizada'
+  } else {
+    novoStatus = 'fechada'
+  }
+
+  await supabase
+    .from('provas')
+    .update({ status: novoStatus, updated_at: new Date().toISOString() })
+    .eq('id', provaId)
 
   return NextResponse.json({
     success: true,
