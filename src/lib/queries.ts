@@ -171,19 +171,36 @@ export async function getLeaderboardProva(provaId: string): Promise<LeaderboardP
 }
 
 // ============================================================
-// RESULTADOS
+// RESULTADO DA PROVA
+// Fonte de verdade: sempre a última etapa inserida.
+// Não depende de resultados_reais nem de is_final.
 // ============================================================
 
-export async function getResultadoProva(provaId: string) {
+export async function getResultadoProva(provaId: string): Promise<ResultadoReal | null> {
   const supabase = await createClient()
   const { data, error } = await supabase
-    .from('resultados_reais')
+    .from('etapas_resultados')
     .select('*')
     .eq('prova_id', provaId)
+    .order('numero_etapa', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (error) throw error
-  return data as ResultadoReal | null
+  if (!data) return null
+
+  // Mapear EtapaResultado para o formato ResultadoReal esperado pelos componentes
+  return {
+    id: data.id,
+    prova_id: data.prova_id,
+    resultado_top20: data.classificacao_geral_top20,
+    camisola_sprint: data.camisola_sprint ?? null,
+    camisola_montanha: data.camisola_montanha ?? null,
+    camisola_juventude: data.camisola_juventude ?? null,
+    inserido_por: data.inserido_por ?? null,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+  } as ResultadoReal
 }
 
 // ============================================================
@@ -470,7 +487,7 @@ export async function getHomepageStats() {
   ] = await Promise.all([
     supabase.from('apostas').select('*', { count: 'exact', head: true }),
     supabase.from('perfis').select('*', { count: 'exact', head: true }),
-    supabase.from('provas').select('*', { count: 'exact', head: true }).eq('status', 'a_decorrer'),
+    supabase.from('provas').select('*', { count: 'exact', head: true }).eq('status', 'fechada'),
   ])
 
   return {
