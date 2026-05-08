@@ -4,6 +4,7 @@ import Link from 'next/link'
 import type { Aposta, EtapaResultado, Prova } from '@/types'
 import { compararDesempate } from '@/lib/pontuacao'
 import AnimatedPoints from '@/components/ui/AnimatedPoints'
+import { nomeExibir, inicialAvatar } from '@/lib/perfil'
 
 interface Props {
   prova: Prova
@@ -31,7 +32,16 @@ export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, t
             <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>
               🏆 Ao vivo
             </p>
-            <h2 className="section-title" style={{ fontSize: '1.25rem', lineHeight: 1.1 }}>{tituloFinal}</h2>
+            <Link href={`/provas/${prova.id}`} style={{ textDecoration: 'none' }}>
+              <h2
+                className="section-title"
+                style={{ fontSize: '1.25rem', lineHeight: 1.1, color: 'var(--text)', transition: 'color 0.15s', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--lime)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text)')}
+              >
+                {tituloFinal} →
+              </h2>
+            </Link>
           </div>
           {ultimaEtapa && (
             <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', background: 'var(--surface-2)', padding: '0.25rem 0.6rem', borderRadius: '999px', border: '1px solid var(--border-hi)', whiteSpace: 'nowrap', marginTop: '0.25rem' }}>
@@ -95,8 +105,8 @@ export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, t
                   fontFamily: 'Barlow Condensed, sans-serif',
                 }}>
                   {a.perfil?.avatar_url
-                    ? <img src={a.perfil.avatar_url} alt={a.perfil.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : (a.perfil?.username?.[0] ?? '?').toUpperCase()
+                    ? <img src={a.perfil.avatar_url} alt={nomeExibir(a.perfil)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : inicialAvatar(a.perfil)
                   }
                 </div>
 
@@ -106,10 +116,10 @@ export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, t
                   color: isTop3 ? 'var(--lime)' : 'var(--text)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
-                  {a.perfil?.full_name || a.perfil?.username || 'utilizador'}
+                  {nomeExibir(a.perfil)}
                 </span>
 
-                {/* Points breakdown — hidden on very small screens */}
+                {/* Points breakdown */}
                 <div className="hidden sm:flex items-center gap-3" style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>
                   {a.pontos_top10 != null && <span>T10: {a.pontos_top10}</span>}
                   {a.pontos_top20 != null && <span>T20: {a.pontos_top20}</span>}
