@@ -3,6 +3,7 @@
 import type { Aposta, EtapaResultado } from '@/types'
 import { calcularPontos, calcularCamisolas } from '@/lib/pontuacao'
 import { getConfigCategoria } from '@/lib/categoriaConfig'
+import { nomeExibir } from '@/lib/perfil'
 
 interface Props {
   aposta: Aposta
@@ -46,7 +47,6 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
   resultado.slice(0, numPos).forEach((c, i) => { if (c?.trim()) posReal.set(c.trim().toLowerCase(), i + 1) })
   adicionais.forEach(a => { if (a.nome?.trim()) posReal.set(a.nome.trim().toLowerCase(), a.posicao) })
 
-  // Mapa de nome → tempo (da coluna dedicada tempos_classificacao)
   const tempoReal = new Map<string, string>()
   const temposClassificacao = (((ultimaEtapa as unknown as Record<string, unknown>)?.tempos_classificacao) ?? {}) as Record<string, string>
   Object.entries(temposClassificacao).forEach(([nome, tempo]) => {
@@ -105,7 +105,7 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
         <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, rgba(200,244,0,0.05) 0%, transparent 60%)' }}>
           <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>🎯 Pontuação</p>
           <h2 className="section-title" style={{ fontSize: '1.2rem' }}>
-            {ehProvaUser ? 'A tua pontuação' : `Pontuação de ${aposta.perfil?.username ?? 'utilizador'}`}
+            {ehProvaUser ? 'A tua pontuação' : `Pontuação de ${nomeExibir(aposta.perfil)}`}
           </h2>
         </div>
 
@@ -207,7 +207,6 @@ export default function ApostaDetalhe({ aposta, ultimaEtapa, ehProvaUser }: Prop
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-sub)', background: 'var(--surface-2)', padding: '0.1rem 0.45rem', borderRadius: '999px' }}>fora</span>
                     )
                   )}
-                  {/* Tempo ao líder */}
                   {ultimaEtapa && apostado && pr !== null && (() => {
                     const tempo = tempoReal.get(apostado.trim().toLowerCase())
                     if (!tempo) return null
