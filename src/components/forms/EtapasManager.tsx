@@ -6,6 +6,7 @@ import type { Ciclista, EtapaResultado, PosicaoAdicional, Prova } from '@/types'
 import CyclistAutocomplete from './CyclistAutocomplete'
 import { getConfigCategoria } from '@/lib/categoriaConfig'
 import ImageResultsParser from './ImageResultsParser'
+import CsvResultsParser from './CsvResultsParser'
 
 interface Props {
   prova: Prova
@@ -24,7 +25,7 @@ export default function EtapasManager({ prova }: Props) {
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [modo, setModo] = useState<'lista' | 'editar'>('lista')
-  const [modoInput, setModoInput] = useState<'manual' | 'imagem'>('manual')
+  const [modoInput, setModoInput] = useState<'manual' | 'imagem' | 'csv'>('manual')
   const [temposMap, setTemposMap] = useState<Record<string, string>>({})
 
   // Formulário
@@ -82,7 +83,6 @@ export default function EtapasManager({ prova }: Props) {
       setPreenchidoDeAnterior(false)
     }
 
-    // Em provas de uma só etapa, marcar automaticamente como final
     setIsFinal(!config.multiEtapas)
     setErro(null)
     setSucesso(null)
@@ -155,7 +155,6 @@ export default function EtapasManager({ prova }: Props) {
       return
     }
 
-    // Validar adicionais (posições opcionais além do top)
     for (const a of adicionais) {
       if (!a.nome.trim()) {
         setErro('Há posições adicionais sem ciclista escolhido.')
@@ -199,7 +198,6 @@ export default function EtapasManager({ prova }: Props) {
       }
     }
 
-    // Construir array com tamanho 20 (DB exige)
     const classificacao = [...posicoes.map(c => c.trim())]
     while (classificacao.length < 20) classificacao.push('')
 
@@ -238,8 +236,39 @@ export default function EtapasManager({ prova }: Props) {
     }
   }
 
+  // Função partilhada para aplicar resultados importados (foto ou CSV)
+  function aplicarImportacao({ posicoes: posImport, todosOsCiclistas, camisola_sprint = '', camisola_montanha = '', camisola_juventude = '' }: {
+    posicoes: string[]
+    todosOsCiclistas: Array<{ posicao: number; nome: string; tempo: string }>
+    camisola_sprint?: string
+    camisola_montanha?: string
+    camisola_juventude?: string
+  }) {
+    const novas = Array(numPos).fill('')
+    posImport.slice(0, numPos).forEach((nome, i) => { novas[i] = nome })
+    setPosicoes(novas)
+    setCamisolaSprint(camisola_sprint)
+    setCamisolaMontanha(camisola_montanha)
+    setCamisolaJuventude(camisola_juventude)
+
+    const nomesNoTop = new Set(
+      novas.filter(n => n?.trim()).map(n => n.trim().toLowerCase())
+    )
+
+    const adicionaisFromImport = todosOsCiclistas
+      .filter(c => c.posicao > numPos && c.nome?.trim() && !nomesNoTop.has(c.nome.trim().toLowerCase()))
+      .map(c => ({ posicao: c.posicao, nome: c.nome, tempo: c.tempo }))
+    setAdicionais(adicionaisFromImport)
+
+    const mapa: Record<string, string> = {}
+    todosOsCiclistas.forEach(c => {
+      if (c.nome?.trim()) mapa[c.nome.trim().toLowerCase()] = c.tempo ?? ''
+    })
+    setTemposMap(mapa)
+    setModoInput('manual')
+  }
+
   function adicionarPosicao() {
-    // Só contar adicionais com posição > numPos para calcular a próxima (ignora os "ocultos" com tempos)
     const visiveis = adicionais.filter(a => a.posicao > numPos)
     const proximaPos = visiveis.length > 0
       ? Math.max(...visiveis.map(a => a.posicao)) + 1
@@ -257,10 +286,18 @@ export default function EtapasManager({ prova }: Props) {
     ))
   }
 
-  // Verificar se já há uma etapa (caso prova não seja multi-etapas)
   const tituloLista = config.multiEtapas ? 'Etapas inseridas' : 'Resultado da prova'
   const btnNovaEtapa = config.multiEtapas ? '➕ Nova etapa' : '➕ Inserir resultado'
   const podeCriarNova = config.multiEtapas || etapas.length === 0
+
+  const btnStyle = (ativo: boolean) => ({
+    padding: '0.5rem 1rem',
+    borderRadius: '0.625rem',
+    border: `1px solid ${ativo ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
+    background: ativo ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
+    color: ativo ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
+    fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
+  })
 
   return (
     <div className="space-y-6">
@@ -415,38 +452,21 @@ export default function EtapasManager({ prova }: Props) {
               </div>
             </div>
 
-            {/* Toggle manual / imagem */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
-              <button
-                onClick={() => setModoInput('manual')}
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: '0.625rem',
-                  border: `1px solid ${modoInput === 'manual' ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
-                  background: modoInput === 'manual' ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
-                  color: modoInput === 'manual' ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
-                  fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
-                }}
-              >
-                ✍️ Inserir manualmente
+            {/* Toggle manual / foto / csv */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+              <button onClick={() => setModoInput('manual')} style={btnStyle(modoInput === 'manual')}>
+                ✍️ Manual
               </button>
-              <button
-                onClick={() => setModoInput('imagem')}
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: '0.625rem',
-                  border: `1px solid ${modoInput === 'imagem' ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
-                  background: modoInput === 'imagem' ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
-                  color: modoInput === 'imagem' ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
-                  fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
-                }}
-              >
-                📸 Importar da foto
+              <button onClick={() => setModoInput('imagem')} style={btnStyle(modoInput === 'imagem')}>
+                📸 Foto
+              </button>
+              <button onClick={() => setModoInput('csv')} style={btnStyle(modoInput === 'csv')}>
+                📄 CSV
               </button>
             </div>
           </div>
 
-          {/* Modo imagem */}
+          {/* Modo foto */}
           {modoInput === 'imagem' && (
             <div className="card">
               <ImageResultsParser
@@ -455,42 +475,26 @@ export default function EtapasManager({ prova }: Props) {
                 temCamisolas={config.temCamisolas}
                 numPosicoes={numPos}
                 onAplicar={({ posicoes, camisola_sprint, camisola_montanha, camisola_juventude, todosOsCiclistas }) => {
-                  // Top N → preencher o formulário normal
-                  const novas = Array(numPos).fill('')
-                  posicoes.slice(0, numPos).forEach((nome, i) => { novas[i] = nome })
-                  setPosicoes(novas)
-                  setCamisolaSprint(camisola_sprint)
-                  setCamisolaMontanha(camisola_montanha)
-                  setCamisolaJuventude(camisola_juventude)
-
-                  // Conjunto de nomes já no top (normalizado) — para evitar duplicados nos adicionais
-                  const nomesNoTop = new Set(
-                    novas
-                      .filter(n => n?.trim())
-                      .map(n => n.trim().toLowerCase())
-                  )
-
-                  // Adicionais: apenas posições ALÉM do top E que não estejam já no top
-                  const adicionaisFromImage = todosOsCiclistas
-                    .filter(c => c.posicao > numPos && c.nome?.trim() && !nomesNoTop.has(c.nome.trim().toLowerCase()))
-                    .map(c => ({ posicao: c.posicao, nome: c.nome, tempo: c.tempo }))
-                  setAdicionais(adicionaisFromImage)
-
-                  // Mapa de tempos: TODOS os ciclistas (guardado separadamente na DB)
-                  const mapa: Record<string, string> = {}
-                  todosOsCiclistas.forEach(c => {
-                    if (c.nome?.trim()) mapa[c.nome.trim().toLowerCase()] = c.tempo ?? ''
-                  })
-                  setTemposMap(mapa)
-
-                  setModoInput('manual')
+                  aplicarImportacao({ posicoes, todosOsCiclistas, camisola_sprint, camisola_montanha, camisola_juventude })
                 }}
                 onCancelar={() => setModoInput('manual')}
               />
             </div>
           )}
 
-          {/* Modo imagem → quando aplicar, muda para manual automaticamente */}
+          {/* Modo CSV */}
+          {modoInput === 'csv' && (
+            <div className="card">
+              <CsvResultsParser
+                ciclistas={ciclistas}
+                numPosicoes={numPos}
+                onAplicar={({ posicoes, todosOsCiclistas }) => {
+                  aplicarImportacao({ posicoes, todosOsCiclistas })
+                }}
+                onCancelar={() => setModoInput('manual')}
+              />
+            </div>
+          )}
 
           {/* Formulário manual */}
           {modoInput === 'manual' && (<>
@@ -570,8 +574,6 @@ export default function EtapasManager({ prova }: Props) {
               Adiciona posições para lá do {numPos} (ex.: {numPos + 3}º, {numPos + 10}º) para os jogadores verem onde estão os ciclistas que apostaram. Não dão pontos extra — é só informação.
             </p>
 
-            {/* Quando importado via foto, os tempos dos top N são guardados nos bastidores.
-                Aqui só mostramos as posições além do top N. */}
             {(() => {
               const temClassif = adicionais.some(a => a.posicao <= numPos)
               const visiveis = adicionais.filter(a => a.posicao > numPos)
@@ -581,13 +583,13 @@ export default function EtapasManager({ prova }: Props) {
                 <>
                   {temClassif && totalOcultos > 0 && (
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', marginBottom: '0.75rem' }}>
-                      ℹ️ {totalOcultos} posições com tempos guardadas da foto (não visíveis aqui — são usadas para mostrar os tempos aos jogadores).
+                      ℹ️ {totalOcultos} posições com tempos guardadas da importação (não visíveis aqui — são usadas para mostrar os tempos aos jogadores).
                     </div>
                   )}
                   {visiveis.length === 0 ? (
                     <p className="text-zinc-500 text-sm text-center py-6">
                       {temClassif
-                        ? 'Todos os tempos foram importados da foto. Podes adicionar posições extra se quiseres.'
+                        ? 'Todos os tempos foram importados. Podes adicionar posições extra se quiseres.'
                         : <>Sem posições adicionais. Clica em <strong>Adicionar</strong> para começares.</>}
                     </p>
                   ) : (
@@ -632,7 +634,7 @@ export default function EtapasManager({ prova }: Props) {
             })()}
           </div>
 
-          {/* Camisolas (só para categorias que têm) */}
+          {/* Camisolas */}
           {config.temCamisolas && (
             <div className="card">
               <h2 className="text-lg font-semibold text-zinc-100 mb-4">🎽 Camisolas Atuais</h2>
@@ -668,7 +670,7 @@ export default function EtapasManager({ prova }: Props) {
             </div>
           )}
 
-          {/* Checkbox "etapa final" só para multi-etapas */}
+          {/* Etapa final */}
           {config.multiEtapas && (
             <div className="card">
               <label className="flex items-center gap-3 cursor-pointer">
