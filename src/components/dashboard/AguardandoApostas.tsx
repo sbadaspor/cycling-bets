@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { nomeExibir, inicialAvatar } from '@/lib/perfil'
+import type { Perfil } from '@/types'
 
 interface Props {
   provaId: string
@@ -10,7 +12,7 @@ export default async function AguardandoApostas({ provaId, provaNome }: Props) {
 
   const [{ data: apostas }, { data: perfis }] = await Promise.all([
     supabase.from('apostas').select('user_id').eq('prova_id', provaId),
-    supabase.from('perfis').select('id, username, avatar_url'),
+    supabase.from('perfis').select('id, username, full_name, avatar_url'),
   ])
 
   if (!perfis || perfis.length === 0) return null
@@ -20,7 +22,7 @@ export default async function AguardandoApostas({ provaId, provaNome }: Props) {
   const jaApostaram = perfis.filter(p => apostaram.has(p.id))
   const faltam = perfis.filter(p => !apostaram.has(p.id))
 
-  if (faltam.length === 0) return null // todos já apostaram
+  if (faltam.length === 0) return null
 
   return (
     <div style={{
@@ -34,7 +36,7 @@ export default async function AguardandoApostas({ provaId, provaNome }: Props) {
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
         {perfis.map(p => {
           const apostou = apostaram.has(p.id)
-          const inicial = p.username?.[0]?.toUpperCase() ?? '?'
+          const inicial = inicialAvatar(p as Perfil)
           return (
             <div key={p.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
               <div style={{
@@ -48,10 +50,9 @@ export default async function AguardandoApostas({ provaId, provaNome }: Props) {
                 transition: 'all 0.2s',
               }}>
                 {p.avatar_url
-                  ? <img src={p.avatar_url} alt={p.username} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: apostou ? 'none' : 'grayscale(1)' }} />
+                  ? <img src={p.avatar_url} alt={nomeExibir(p as Perfil)} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: apostou ? 'none' : 'grayscale(1)' }} />
                   : inicial
                 }
-                {/* Checkmark overlay */}
                 {apostou && (
                   <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: 'var(--lime)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.55rem', fontWeight: 900, color: '#0a0a0f' }}>
                     ✓
@@ -59,7 +60,7 @@ export default async function AguardandoApostas({ provaId, provaNome }: Props) {
                 )}
               </div>
               <span style={{ fontSize: '0.65rem', color: apostou ? 'var(--lime)' : 'var(--text-sub)', fontWeight: 600 }}>
-                {apostou ? '✅' : '⏳'} {p.username}
+                {apostou ? '✅' : '⏳'} {nomeExibir(p as Perfil)}
               </span>
             </div>
           )
@@ -68,7 +69,7 @@ export default async function AguardandoApostas({ provaId, provaNome }: Props) {
 
       <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '0.6rem' }}>
         {jaApostaram.length} de {total} {total === 1 ? 'jogador apostou' : 'jogadores apostaram'}
-        {faltam.length > 0 && ` · Falta${faltam.length === 1 ? '' : 'm'}: ${faltam.map(p => p.username).join(', ')}`}
+        {faltam.length > 0 && ` · Falta${faltam.length === 1 ? '' : 'm'}: ${faltam.map(p => nomeExibir(p as Perfil)).join(', ')}`}
       </p>
     </div>
   )
