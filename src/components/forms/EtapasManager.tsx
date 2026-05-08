@@ -715,3 +715,4 @@ export default function EtapasManager({ prova }: Props) {
     </div>
   )
 }
+   
