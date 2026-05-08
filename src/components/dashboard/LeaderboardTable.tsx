@@ -1,6 +1,7 @@
 'use client'
 
 import type { LeaderboardEntry } from '@/types'
+import { nomeExibir, inicialAvatar } from '@/lib/perfil'
 
 interface Props {
   entries: LeaderboardEntry[]
@@ -50,7 +51,7 @@ export function LeaderboardTable({ entries, currentUserId }: Props) {
         const isMe = entry.perfil.id === currentUserId
         const rank = entry.rank
         const isTop3 = rank <= 3
-        const initial = entry.perfil.username?.[0]?.toUpperCase() ?? '?'
+        const initial = inicialAvatar(entry.perfil)
 
         return (
           <div
@@ -87,8 +88,12 @@ export function LeaderboardTable({ entries, currentUserId }: Props) {
                 fontSize: '0.75rem', fontWeight: 700,
                 color: isMe ? 'var(--lime)' : 'var(--text-dim)',
                 fontFamily: 'Barlow Condensed, sans-serif',
+                overflow: 'hidden',
               }}>
-                {initial}
+                {entry.perfil.avatar_url
+                  ? <img src={entry.perfil.avatar_url} alt={nomeExibir(entry.perfil)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : initial
+                }
               </div>
               <div style={{ overflow: 'hidden' }}>
                 <p style={{
@@ -96,14 +101,9 @@ export function LeaderboardTable({ entries, currentUserId }: Props) {
                   color: isMe ? 'var(--lime)' : 'var(--text)',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
-                  {entry.perfil.username}
+                  {nomeExibir(entry.perfil)}
                   {isMe && <span style={{ fontSize: '0.7rem', color: 'var(--lime)', marginLeft: '4px', opacity: 0.7 }}>tu</span>}
                 </p>
-                {entry.perfil.full_name && (
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-sub)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {entry.perfil.full_name}
-                  </p>
-                )}
               </div>
             </div>
 
@@ -136,4 +136,3 @@ export function LeaderboardTable({ entries, currentUserId }: Props) {
     </div>
   )
 }
-
