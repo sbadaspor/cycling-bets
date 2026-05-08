@@ -6,6 +6,7 @@ import { categorizarProva } from '@/lib/provaStatus'
 import ApostaDetalhe from '@/components/dashboard/ApostaDetalhe'
 import SwipeableStages from '@/components/dashboard/SwipeableStages'
 import ComparacaoApostas from '@/components/dashboard/ComparacaoApostas'
+import { nomeExibir } from '@/lib/perfil'
 import type { Aposta, EtapaResultado } from '@/types'
 
 interface Props {
@@ -86,7 +87,7 @@ export default async function ApostaDetalhePage({ params, searchParams }: Props)
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap', marginBottom: '0.625rem' }}>
           <span className={`badge ${estadoBadge.cls}`}>{estadoBadge.label}</span>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-            {aposta.perfil?.username ?? 'utilizador'}
+            {nomeExibir(aposta.perfil)}
             {ranking > 0 && ultimaEtapa && ` · #${ranking} de ${todasApostas.length}`}
           </span>
         </div>
