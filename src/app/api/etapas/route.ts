@@ -3,9 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { calcularPontos } from '@/lib/pontuacao'
 import type { CategoriaProvaTipo } from '@/types'
 
-// ============================================================
-// Helper: verificar se utilizador é admin
-// ============================================================
 async function checkAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -23,16 +20,10 @@ async function checkAdmin() {
   return { ok: true as const, supabase, userId: user.id }
 }
 
-// ============================================================
-// Helper: recalcular pontos de todas as apostas com base na
-// última etapa inserida. A pontuação não é cumulativa —
-// o que vale são sempre os pontos da etapa mais recente.
-// ============================================================
 async function recalcularPontosProva(
   supabase: Awaited<ReturnType<typeof createClient>>,
   provaId: string
 ) {
-  // Buscar última etapa e categoria da prova em paralelo
   const [{ data: ultimaEtapa }, { data: prova }] = await Promise.all([
     supabase
       .from('etapas_resultados')
@@ -57,7 +48,6 @@ async function recalcularPontosProva(
 
   if (apErr) throw new Error(apErr.message)
 
-  // Se não há etapas, repor pontos a zero
   if (!ultimaEtapa) {
     const updates = (apostas ?? []).map(a => ({
       id: a.id,
@@ -84,7 +74,6 @@ async function recalcularPontosProva(
     juventude: ultimaEtapa.camisola_juventude ?? '',
   }
 
-  // Calcular todos os pontos e fazer upsert em batch (sem loop de roundtrips)
   const updates = (apostas ?? []).map(aposta => {
     const apostaCamisolas = {
       sprint: aposta.camisola_sprint ?? '',
@@ -123,9 +112,6 @@ async function recalcularPontosProva(
   return { calculadas: updates.length, total: updates.length, etapa: ultimaEtapa.numero_etapa }
 }
 
-// ============================================================
-// GET /api/etapas?prova_id=xxx
-// ============================================================
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const provaId = req.nextUrl.searchParams.get('prova_id')
@@ -144,12 +130,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ etapas: data })
 }
 
-// ============================================================
-// POST /api/etapas
-// Body: { prova_id, numero_etapa, data_etapa, classificacao_geral_top20[],
-//         posicoes_adicionais?: [{posicao, nome}],
-//         camisola_sprint?, camisola_montanha?, camisola_juventude?, is_final }
-// ============================================================
 export async function POST(req: NextRequest) {
   const auth = await checkAdmin()
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
@@ -176,7 +156,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'classificacao_geral_top20 tem de ter exatamente 20 posições.' }, { status: 400 })
   }
 
-  // Buscar categoria para saber quantas posições validar
   const { data: prova } = await supabase
     .from('provas')
     .select('categoria, nome')
@@ -186,22 +165,18 @@ export async function POST(req: NextRequest) {
   const categoria: CategoriaProvaTipo | undefined = prova?.categoria ?? undefined
   const numPos = categoria === 'monumento' || categoria === 'prova_dia' ? 10 : 20
 
-  // Validar as primeiras numPos posições como obrigatórias; o resto pode ficar vazio
   for (let i = 0; i < numPos; i++) {
     if (!classificacao_geral_top20[i] || !classificacao_geral_top20[i].trim()) {
       return NextResponse.json({ error: `Posição ${i + 1} está vazia.` }, { status: 400 })
     }
   }
 
-  // Validar posições adicionais
   let posicoesAdicionaisLimpas: { posicao: number; nome: string }[] = []
   if (Array.isArray(posicoes_adicionais)) {
     const posVistas = new Set<number>()
     const nomesVistos = new Set<string>()
     const nomesTop20 = new Set(
-      classificacao_geral_top20
-        .slice(0, numPos)
-        .map((n: string) => n.trim())
+      classificacao_geral_top20.slice(0, numPos).map((n: string) => n.trim())
     )
 
     for (const item of posicoes_adicionais) {
@@ -224,7 +199,6 @@ export async function POST(req: NextRequest) {
     posicoesAdicionaisLimpas.sort((a, b) => a.posicao - b.posicao)
   }
 
-  // Se esta etapa é marcada como final, limpar is_final nas restantes
   if (is_final) {
     await supabase
       .from('etapas_resultados')
@@ -233,7 +207,6 @@ export async function POST(req: NextRequest) {
       .neq('numero_etapa', numero_etapa)
   }
 
-  // Gravar / actualizar etapa
   const { error: upErr } = await supabase
     .from('etapas_resultados')
     .upsert(
@@ -256,7 +229,6 @@ export async function POST(req: NextRequest) {
 
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
 
-  // Recalcular pontos com base nesta etapa (a mais recente passa a ser a fonte de verdade)
   let recalc
   try {
     recalc = await recalcularPontosProva(supabase, prova_id)
@@ -265,16 +237,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 
-  // Actualizar status da prova
-  // - is_final=true → finalizada
-  // - is_final=false mas há etapas → fechada (apostas bloqueadas, corrida em curso)
   const novoStatus = is_final ? 'finalizada' : 'fechada'
   await supabase
     .from('provas')
     .update({ status: novoStatus, updated_at: new Date().toISOString() })
     .eq('id', prova_id)
 
-  // Notificações (best-effort)
   try {
     const { sendNotificationsToAll } = await import('@/lib/sendNotifications')
     const nomeProva = prova?.nome ?? 'uma prova'
@@ -306,9 +274,6 @@ export async function POST(req: NextRequest) {
   })
 }
 
-// ============================================================
-// DELETE /api/etapas?prova_id=xxx&numero_etapa=N
-// ============================================================
 export async function DELETE(req: NextRequest) {
   const auth = await checkAdmin()
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
@@ -322,7 +287,6 @@ export async function DELETE(req: NextRequest) {
   }
   const numeroEtapa = parseInt(numeroEtapaStr, 10)
 
-  // Só permite apagar a última etapa inserida
   const { data: ultima } = await supabase
     .from('etapas_resultados')
     .select('numero_etapa')
@@ -346,10 +310,8 @@ export async function DELETE(req: NextRequest) {
 
   if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 })
 
-  // Recalcular com base na nova última etapa (ou repor a zero se não há mais etapas)
   const recalc = await recalcularPontosProva(supabase, provaId)
 
-  // Repor status da prova conforme o estado actual das etapas
   const { data: novaUltima } = await supabase
     .from('etapas_resultados')
     .select('is_final')
