@@ -8,6 +8,7 @@ import PerfilSections, { type EntradaPalmar, type ResultadoApp } from '@/compone
 import CartaoEpoca from '@/components/perfil/CartaoEpoca'
 import AdvancedStatsCard from '@/components/perfil/AdvancedStatsCard'
 import CiclistasHistoricosCard from '@/components/perfil/CiclistasHistoricosCard'
+import { nomeExibir, inicialAvatar } from '@/lib/perfil'
 
 interface Props {
   params: Promise<{ userId: string }>
@@ -36,7 +37,6 @@ export default async function PerfilPage({ params }: Props) {
   const statsGerais   = leaderboard.find(e => e.perfil.id === userId)
   const statsVitorias = todasVitorias.find(v => v.perfil.id === userId)
 
-  // ── Palmares ────────────────────────────────────────
   const { data: historicasRaw } = await supabase
     .from('vitorias_historicas')
     .select('*')
@@ -62,7 +62,6 @@ export default async function PerfilPage({ params }: Props) {
     nome: string; ano: number; categoria: CategoriaProvaTipo; provaId: string
   }[] = []
 
-  // ── Os meus resultados (app) — sem loop N+1 ─────────
   const resultadosApp: ResultadoApp[] = []
 
   for (const { prova, leaderboard: lb } of todosLeaderboards) {
@@ -111,8 +110,9 @@ export default async function PerfilPage({ params }: Props) {
   const tourWins   = palmares.filter(e => tipoGrandeVolta(e.nome) === 'tour').length
   const vueltaWins = palmares.filter(e => tipoGrandeVolta(e.nome) === 'vuelta').length
 
-  const initial = perfil.username?.[0]?.toUpperCase() ?? '?'
+  const initial = inicialAvatar(perfil)
   const avatarUrlPerfil = perfil.avatar_url
+  const nomeCompleto = nomeExibir(perfil)
 
   const dataNasc = perfil.data_nascimento
   let idade: number | null = null
@@ -130,13 +130,22 @@ export default async function PerfilPage({ params }: Props) {
   return (
     <div className="max-w-xl mx-auto" style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
 
-      <div className="animate-fade-up">
+      <div className="animate-fade-up" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
         <Link href="/" style={{
           fontSize: '0.78rem', color: '#9a9ab5',
           display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-          textDecoration: 'none', marginBottom: '0.75rem',
+          textDecoration: 'none',
         }}>
           ← Dashboard
+        </Link>
+        <Link href={`/perfil/${userId}/stats`} style={{
+          display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+          padding: '0.4rem 0.875rem', borderRadius: '0.625rem',
+          fontSize: '0.75rem', fontWeight: 700,
+          border: '1px solid var(--lime)', background: 'rgba(200,244,0,0.1)',
+          color: 'var(--lime)', textDecoration: 'none',
+        }}>
+          📊 Estatísticas detalhadas →
         </Link>
       </div>
 
@@ -178,11 +187,11 @@ export default async function PerfilPage({ params }: Props) {
               letterSpacing: '0.04em', color: 'var(--text)', lineHeight: 1,
               marginBottom: '0.3rem',
             }}>
-              {perfil.username}
+              {nomeCompleto}
             </h1>
-            {perfil.full_name && (
-              <p style={{ fontSize: '0.88rem', color: '#e0e0f0', fontWeight: 500 }}>
-                {perfil.full_name}
+            {perfil.full_name && perfil.username !== perfil.full_name && (
+              <p style={{ fontSize: '0.78rem', color: '#9a9ab5', fontWeight: 400 }}>
+                @{perfil.username}
               </p>
             )}
             {dataNascFormatada && (
