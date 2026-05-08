@@ -14,6 +14,7 @@ import DynamicTheme from '@/components/ui/DynamicTheme'
 import QuemApostouCard from '@/components/dashboard/QuemApostouCard'
 import AguardandoApostas from '@/components/dashboard/AguardandoApostas'
 import MomentoDaVirada from '@/components/dashboard/MomentoDaVirada'
+import { nomeExibir, inicialAvatar } from '@/lib/perfil'
 import type { CategoriaProvaTipo } from '@/types'
 
 interface Props {
@@ -113,10 +114,13 @@ export default async function ProvaPage({ params }: Props) {
                         {medals[idx] ?? rank}
                       </span>
                       <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: perfil.avatar_url ? 'transparent' : 'rgba(200,244,0,0.1)', border: `1.5px solid ${isTop3 ? 'rgba(200,244,0,0.3)' : 'rgba(255,255,255,0.07)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 900, color: 'var(--lime)', fontFamily: 'Barlow Condensed, sans-serif' }}>
-                        {perfil.avatar_url ? <img src={perfil.avatar_url} alt={perfil.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : perfil.username?.[0]?.toUpperCase()}
+                        {perfil.avatar_url
+                          ? <img src={perfil.avatar_url} alt={nomeExibir(perfil)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : inicialAvatar(perfil)
+                        }
                       </div>
                       <Link href={`/provas/${provaId}/apostas/${perfil.id}`} style={{ flex: 1, fontSize: '0.9rem', fontWeight: isMe ? 600 : 500, color: isMe ? 'var(--lime)' : 'var(--text)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {perfil.username}{isMe && <span style={{ fontSize: '0.68rem', marginLeft: '4px', opacity: 0.6 }}>tu</span>}
+                        {nomeExibir(perfil)}{isMe && <span style={{ fontSize: '0.68rem', marginLeft: '4px', opacity: 0.6 }}>tu</span>}
                       </Link>
                       <div className="hidden sm:flex items-center gap-3" style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>
                         {aposta.pontos_top10 != null && <span>T10: {aposta.pontos_top10}</span>}
