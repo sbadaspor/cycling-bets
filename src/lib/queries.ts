@@ -171,9 +171,8 @@ export async function getLeaderboardProva(provaId: string): Promise<LeaderboardP
 }
 
 // ============================================================
-// RESULTADO DA PROVA
+// RESULTADOS
 // Fonte de verdade: sempre a última etapa inserida.
-// Não depende de resultados_reais nem de is_final.
 // ============================================================
 
 export async function getResultadoProva(provaId: string): Promise<ResultadoReal | null> {
@@ -189,7 +188,6 @@ export async function getResultadoProva(provaId: string): Promise<ResultadoReal 
   if (error) throw error
   if (!data) return null
 
-  // Mapear EtapaResultado para o formato ResultadoReal esperado pelos componentes
   return {
     id: data.id,
     prova_id: data.prova_id,
@@ -500,6 +498,7 @@ export async function getHomepageStats() {
 export interface ActivityItem {
   userId: string
   username: string
+  fullName: string | null
   avatarUrl: string | null
   provaId: string
   provaNome: string
@@ -511,7 +510,7 @@ export async function getActivityFeed(limit = 6): Promise<ActivityItem[]> {
 
   const { data } = await supabase
     .from('apostas')
-    .select('user_id, created_at, prova:provas(id, nome), perfil:perfis(username, avatar_url)')
+    .select('user_id, created_at, prova:provas(id, nome), perfil:perfis(username, full_name, avatar_url)')
     .order('created_at', { ascending: false })
     .limit(limit)
 
@@ -519,12 +518,13 @@ export async function getActivityFeed(limit = 6): Promise<ActivityItem[]> {
     user_id: string
     created_at: string
     prova: { id: string; nome: string } | null
-    perfil: { username: string; avatar_url: string | null } | null
+    perfil: { username: string; full_name: string | null; avatar_url: string | null } | null
   }>)
     .filter(r => r.prova && r.perfil)
     .map(r => ({
       userId: r.user_id,
       username: r.perfil!.username,
+      fullName: r.perfil!.full_name ?? null,
       avatarUrl: r.perfil!.avatar_url,
       provaId: r.prova!.id,
       provaNome: r.prova!.nome,
