@@ -14,6 +14,7 @@ import DynamicTheme from '@/components/ui/DynamicTheme'
 import QuemApostouCard from '@/components/dashboard/QuemApostouCard'
 import AguardandoApostas from '@/components/dashboard/AguardandoApostas'
 import MomentoDaVirada from '@/components/dashboard/MomentoDaVirada'
+import SimuladorEtapa from '@/components/dashboard/SimuladorEtapa'
 import { nomeExibir, inicialAvatar } from '@/lib/perfil'
 import type { CategoriaProvaTipo } from '@/types'
 
@@ -47,6 +48,7 @@ export default async function ProvaPage({ params }: Props) {
   const st = statusMap[prova.status] ?? statusMap['finalizada']
   const minhaEntrada = user ? leaderboard.find(e => e.perfil.id === user.id) : null
   const isMultiEtapas = etapas.length > 1
+  const ultimaEtapa = etapas.length > 0 ? etapas[etapas.length - 1] : null
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -60,6 +62,11 @@ export default async function ProvaPage({ params }: Props) {
         <h1 className="section-title" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{prova.nome}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
           <span className={`badge ${st.cls}`}>{st.label}</span>
+          {ultimaEtapa && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', background: 'var(--surface-2)', padding: '0.15rem 0.6rem', borderRadius: '999px', border: '1px solid var(--border)' }}>
+              Etapa {ultimaEtapa.numero_etapa}{ultimaEtapa.is_final ? ' · Final' : ''}
+            </span>
+          )}
           <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
             {new Date(prova.data_inicio).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' })}
             {' → '}
@@ -138,7 +145,16 @@ export default async function ProvaPage({ params }: Props) {
             )}
           </div>
 
-          {/* Momento da Virada */}
+          {/* Simulador — só durante a corrida com pelo menos 1 etapa inserida */}
+          {prova.status === 'fechada' && apostas.length > 0 && ultimaEtapa && (
+            <SimuladorEtapa
+              apostas={apostas}
+              ultimaEtapa={ultimaEtapa}
+              categoria={prova.categoria as CategoriaProvaTipo}
+            />
+          )}
+
+          {/* Linha do Tempo — só com 2+ etapas */}
           {isMultiEtapas && apostas.length > 0 && (
             <MomentoDaVirada etapas={etapas} apostas={apostas} categoria={prova.categoria as CategoriaProvaTipo} />
           )}
