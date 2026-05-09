@@ -151,9 +151,9 @@ export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, t
 
                 {/* Points breakdown */}
                 <div className="hidden sm:flex items-center gap-3" style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>
-                  <span>T10: {a.pontosTop10Calc ?? a.pontos_top10}</span>
-                  <span>T20: {a.pontosTop20Calc ?? a.pontos_top20}</span>
-                  <span>🎽 {a.pontosCamisolasCalc ?? a.pontos_camisolas}</span>
+                  <span>T10: {'pontosTop10Calc' in a ? (a as any).pontosTop10Calc : a.pontos_top10}</span>
+                  <span>T20: {'pontosTop20Calc' in a ? (a as any).pontosTop20Calc : a.pontos_top20}</span>
+                  <span>🎽 {'pontosCamisolasCalc' in a ? (a as any).pontosCamisolasCalc : a.pontos_camisolas}</span>
                 </div>
 
                 {/* Total */}
