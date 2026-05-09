@@ -37,6 +37,8 @@ export default function EtapasManager({ prova }: Props) {
   const [camisolaMontanha, setCamisolaMontanha] = useState('')
   const [camisolaJuventude, setCamisolaJuventude] = useState('')
   const [perfilUrl, setPerfilUrl] = useState('')
+  const [gpxUrl, setGpxUrl] = useState('')
+  const [gpxUploading, setGpxUploading] = useState(false)
   const [isFinal, setIsFinal] = useState(false)
   const [preenchidoDeAnterior, setPreenchidoDeAnterior] = useState(false)
 
@@ -84,6 +86,7 @@ export default function EtapasManager({ prova }: Props) {
     }
 
     setPerfilUrl('')
+    setGpxUrl('')
     setIsFinal(!config.multiEtapas)
     setErro(null)
     setSucesso(null)
@@ -110,6 +113,7 @@ export default function EtapasManager({ prova }: Props) {
     setCamisolaMontanha(e.camisola_montanha ?? '')
     setCamisolaJuventude(e.camisola_juventude ?? '')
     setPerfilUrl(e.perfil_url ?? '')
+    setGpxUrl(e.gpx_url ?? '')
     setIsFinal(e.is_final || !config.multiEtapas)
     setPreenchidoDeAnterior(false)
     setErro(null)
@@ -219,6 +223,7 @@ export default function EtapasManager({ prova }: Props) {
           camisola_montanha: config.temCamisolas ? camisolaMontanha.trim() : '',
           camisola_juventude: config.temCamisolas ? camisolaJuventude.trim() : '',
           perfil_url: perfilUrl.trim() || null,
+          gpx_url: gpxUrl.trim() || null,
           is_final: !config.multiEtapas ? true : isFinal,
         }),
       })
@@ -346,6 +351,11 @@ export default function EtapasManager({ prova }: Props) {
                             🗺️ Perfil
                           </span>
                         )}
+                        {e.gpx_url && (
+                          <span className="badge bg-blue-900/50 text-blue-400 border border-blue-800 text-xs">
+                            📍 GPX
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-zinc-500 mt-1">
                         Vencedor: <span className="text-amber-400">{e.classificacao_geral_top20[0]}</span>
@@ -439,6 +449,70 @@ export default function EtapasManager({ prova }: Props) {
                     style={{ width: '100%', height: 'auto', display: 'block' }}
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                   />
+                </div>
+              )}
+            </div>
+
+            {/* Upload GPX */}
+            <div style={{ marginTop: '1rem' }}>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5">
+                📍 Ficheiro GPX do percurso (opcional)
+              </label>
+              {gpxUrl ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'rgba(200,244,0,0.08)', border: '1px solid rgba(200,244,0,0.25)', borderRadius: '0.625rem', padding: '0.625rem 0.875rem' }}>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--lime)', flex: 1 }}>✅ GPX carregado</span>
+                  <button
+                    onClick={() => setGpxUrl('')}
+                    style={{ fontSize: '0.75rem', color: 'var(--text-sub)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Remover
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    type="file"
+                    accept=".gpx"
+                    disabled={gpxUploading}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      setGpxUploading(true)
+                      setErro(null)
+                      try {
+                        const { createClient } = await import('@supabase/supabase-js')
+                        const supabase = createClient(
+                          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                        )
+                        const fileName = `${provaId}-etapa-${numeroEtapa}-${Date.now()}.gpx`
+                        const { error } = await supabase.storage
+                          .from('gpx')
+                          .upload(fileName, file, { upsert: true, contentType: 'application/gpx+xml' })
+                        if (error) throw error
+                        const { data: urlData } = supabase.storage.from('gpx').getPublicUrl(fileName)
+                        setGpxUrl(urlData.publicUrl)
+                      } catch (err) {
+                        setErro(err instanceof Error ? err.message : 'Erro ao fazer upload do GPX')
+                      } finally {
+                        setGpxUploading(false)
+                      }
+                    }}
+                    style={{ display: 'none' }}
+                    id="gpx-upload"
+                  />
+                  <label
+                    htmlFor="gpx-upload"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.5rem 1rem', borderRadius: '0.625rem', cursor: gpxUploading ? 'not-allowed' : 'pointer',
+                      border: '1px dashed var(--border-hi)', background: 'var(--surface-2)',
+                      color: 'var(--text-dim)', fontSize: '0.82rem', fontWeight: 500,
+                      opacity: gpxUploading ? 0.6 : 1,
+                    }}
+                  >
+                    {gpxUploading ? '⏳ A carregar...' : '📁 Escolher ficheiro .gpx'}
+                  </label>
                 </div>
               )}
             </div>
