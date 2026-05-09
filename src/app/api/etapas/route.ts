@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
     camisola_montanha,
     camisola_juventude,
     perfil_url,
+    gpx_url,
     is_final,
   } = body
 
@@ -237,6 +238,7 @@ export async function POST(req: NextRequest) {
         camisola_montanha: camisola_montanha || null,
         camisola_juventude: camisola_juventude || null,
         perfil_url: perfil_url || null,
+        gpx_url: gpx_url || null,
         is_final: !!is_final,
         inserido_por: userId,
         updated_at: new Date().toISOString(),
