@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import type { Aposta, EtapaResultado, Prova } from '@/types'
-import { compararDesempate } from '@/lib/pontuacao'
+import { calcularPontos } from '@/lib/pontuacao'
+import type { CategoriaProvaTipo } from '@/types'
 import AnimatedPoints from '@/components/ui/AnimatedPoints'
 import { nomeExibir, inicialAvatar } from '@/lib/perfil'
 
@@ -14,10 +15,39 @@ interface Props {
 }
 
 export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, titulo }: Props) {
-  const ordenadas = [...apostas].sort(compararDesempate)
   const tituloFinal = titulo ?? `Classificação — ${prova.nome}`
-
   const medals = ['🥇', '🥈', '🥉']
+
+  // Calcular pontos em tempo real com base na última etapa
+  // Isto garante que a classificação está sempre correcta mesmo se a DB estiver desactualizada
+  const apostasComPontos = apostas.map(aposta => {
+    if (!ultimaEtapa) return { ...aposta, pontosCalc: aposta.pontos_total }
+
+    const calc = calcularPontos(
+      aposta.apostas_top20,
+      ultimaEtapa.classificacao_geral_top20,
+      {
+        sprint: aposta.camisola_sprint ?? '',
+        montanha: aposta.camisola_montanha ?? '',
+        juventude: aposta.camisola_juventude ?? '',
+      },
+      {
+        sprint: ultimaEtapa.camisola_sprint ?? '',
+        montanha: ultimaEtapa.camisola_montanha ?? '',
+        juventude: ultimaEtapa.camisola_juventude ?? '',
+      },
+      prova.categoria as CategoriaProvaTipo
+    )
+    return {
+      ...aposta,
+      pontosCalc: calc.pontos_total,
+      pontosTop10Calc: calc.pontos_top10,
+      pontosTop20Calc: calc.pontos_top20,
+      pontosCamisolasCalc: calc.pontos_camisolas,
+    }
+  })
+
+  const ordenadas = [...apostasComPontos].sort((a, b) => b.pontosCalc - a.pontosCalc)
 
   return (
     <div className="card-flush animate-fade-up">
@@ -67,7 +97,7 @@ export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, t
           {ordenadas.map((a, idx) => {
             const rank = idx + 1
             const isTop3 = rank <= 3
-            const pontos = a.pontos_total ?? 0
+            const pontos = a.pontosCalc
 
             return (
               <Link
@@ -121,12 +151,12 @@ export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, t
 
                 {/* Points breakdown */}
                 <div className="hidden sm:flex items-center gap-3" style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>
-                  {a.pontos_top10 != null && <span>T10: {a.pontos_top10}</span>}
-                  {a.pontos_top20 != null && <span>T20: {a.pontos_top20}</span>}
-                  {a.pontos_camisolas != null && <span>🎽 {a.pontos_camisolas}</span>}
+                  <span>T10: {a.pontosTop10Calc ?? a.pontos_top10}</span>
+                  <span>T20: {a.pontosTop20Calc ?? a.pontos_top20}</span>
+                  <span>🎽 {a.pontosCamisolasCalc ?? a.pontos_camisolas}</span>
                 </div>
 
-                {/* Total animado */}
+                {/* Total */}
                 <AnimatedPoints value={pontos} isTop3={isTop3} />
               </Link>
             )
