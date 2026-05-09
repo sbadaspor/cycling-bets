@@ -59,6 +59,8 @@ async function recalcularPontosProva(
   if (!ultimaEtapa) {
     const updates = (apostas ?? []).map(a => ({
       id: a.id,
+      prova_id: a.prova_id,
+      user_id: a.user_id,
       pontos_total: 0,
       pontos_top10: 0,
       pontos_top20: 0,
@@ -99,6 +101,8 @@ async function recalcularPontosProva(
 
     return {
       id: aposta.id,
+      prova_id: aposta.prova_id,
+      user_id: aposta.user_id,
       pontos_total: calc.pontos_total,
       pontos_top10: calc.pontos_top10,
       pontos_top20: calc.pontos_top20,
