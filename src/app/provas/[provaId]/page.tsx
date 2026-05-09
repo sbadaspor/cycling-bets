@@ -210,8 +210,8 @@ export default async function ProvaPage({ params, searchParams }: Props) {
         {/* Sidebar */}
         <div className="lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-          {/* Mapa e perfil da etapa seleccionada */}
-          {etapaActiva && (etapaActiva.perfil_url || etapaActiva.gpx_url) && (
+          {/* Perfil da etapa seleccionada */}
+          {etapaActiva && etapaActiva.perfil_url && (
             <div className="card-flush animate-fade-up" style={{ overflow: 'hidden' }}>
               <div style={{ padding: '0.7rem 1rem', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
                 <p style={{ fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -219,24 +219,13 @@ export default async function ProvaPage({ params, searchParams }: Props) {
                 </p>
               </div>
               <div style={{ padding: '0.875rem' }}>
-                {etapaActiva.gpx_url ? (
-                  // Com GPX: mapa + elevação + perfil imagem
-                  <EtapaMapWrapper
-                    gpxUrl={etapaActiva.gpx_url}
-                    perfilUrl={etapaActiva.perfil_url}
-                    numeroEtapa={etapaActiva.numero_etapa}
-                    dataEtapa={etapaActiva.data_etapa}
+                <div style={{ borderRadius: '0.625rem', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <img
+                    src={etapaActiva.perfil_url}
+                    alt={`Perfil Etapa ${etapaActiva.numero_etapa}`}
+                    style={{ width: '100%', height: 'auto', display: 'block' }}
                   />
-                ) : etapaActiva.perfil_url ? (
-                  // Só perfil imagem
-                  <div style={{ borderRadius: '0.625rem', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                    <img
-                      src={etapaActiva.perfil_url}
-                      alt={`Perfil Etapa ${etapaActiva.numero_etapa}`}
-                      style={{ width: '100%', height: 'auto', display: 'block' }}
-                    />
-                  </div>
-                ) : null}
+                </div>
               </div>
             </div>
           )}
@@ -283,16 +272,4 @@ export default async function ProvaPage({ params, searchParams }: Props) {
       </div>
     </div>
   )
-}
-
-// Wrapper para o EtapaMap (client component) — importado dinamicamente para não bloquear SSR
-function EtapaMapWrapper(props: {
-  gpxUrl: string
-  perfilUrl?: string | null
-  numeroEtapa: number
-  dataEtapa: string
-}) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const EtapaMap = require('@/components/dashboard/EtapaMap').default
-  return <EtapaMap {...props} />
 }
