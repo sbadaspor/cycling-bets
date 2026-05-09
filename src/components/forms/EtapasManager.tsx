@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Ciclista, EtapaResultado, PosicaoAdicional, Prova } from '@/types'
 import CyclistAutocomplete from './CyclistAutocomplete'
@@ -265,23 +265,28 @@ export default function EtapasManager({ prova }: Props) {
 
   function processarCSV(text: string) {
     const todasLinhas = text.trim().split('\n').filter(l => l.trim())
-    // Ignorar cabeçalho se existir (primeira linha com "posicao" ou "pos")
     const linhas = todasLinhas.filter(l => {
       const primeiro = l.split(',')[0].trim().toLowerCase()
       return primeiro !== 'posicao' && primeiro !== 'pos' && primeiro !== 'position' && !isNaN(parseInt(primeiro))
     })
 
     const parsed: { pos: number; nome: string; tempo: string }[] = []
-    const errosCSV: string[] = []
+
+    // Mapa de lookup da startlist: nome lowercase → nome exacto da startlist
+    const startlistMap = new Map<string, string>()
+    ciclistas.forEach(c => startlistMap.set(c.nome.toLowerCase(), c.nome))
 
     for (const linha of linhas) {
       const partes = linha.split(',')
       if (partes.length < 2) continue
       const pos = parseInt(partes[0].trim())
-      const nome = partes[1].trim()
+      const nomeCSV = partes[1].trim()
       const tempo = partes[2]?.trim() ?? ''
-      if (isNaN(pos) || !nome) { errosCSV.push(`Linha inválida: "${linha}"`); continue }
-      parsed.push({ pos, nome, tempo })
+      if (isNaN(pos) || !nomeCSV) continue
+
+      // Tentar encontrar o nome exacto na startlist (case-insensitive)
+      const nomeExacto = startlistMap.get(nomeCSV.toLowerCase()) ?? nomeCSV
+      parsed.push({ pos, nome: nomeExacto, tempo })
     }
 
     if (!parsed.length) { setErro('Nenhuma linha válida encontrada no CSV.'); return }
@@ -303,8 +308,10 @@ export default function EtapasManager({ prova }: Props) {
       .filter(item => item.pos > numPos && item.nome?.trim() && !nomesTop.has(item.nome.trim().toLowerCase()))
       .map(item => ({ posicao: item.pos, nome: item.nome, tempo: item.tempo }))
     setAdicionais(adicionaisCSV)
+
+    const semMatch = parsed.filter(item => !startlistMap.has(item.nome.toLowerCase())).length
     setModoInput('manual')
-    setSucesso(`✅ CSV importado: ${novas.filter(Boolean).length} posições no Top-${numPos}${adicionaisCSV.length > 0 ? `, ${adicionaisCSV.length} adicionais` : ''}.`)
+    setSucesso(`✅ CSV importado: ${novas.filter(Boolean).length} posições no Top-${numPos}${adicionaisCSV.length > 0 ? `, ${adicionaisCSV.length} adicionais` : ''}${semMatch > 0 ? ` · ⚠️ ${semMatch} sem match na startlist` : ''}.`)
   }
 
   const tituloLista = config.multiEtapas ? 'Etapas inseridas' : 'Resultado da prova'
