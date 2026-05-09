@@ -10,7 +10,7 @@ export interface Perfil {
   full_name?: string
   is_admin: boolean
   avatar_url?: string
-  data_nascimento?: string   // ISO date — opcional, pode não estar preenchido
+  data_nascimento?: string
   created_at: string
   updated_at: string
 }
@@ -36,7 +36,7 @@ export interface Ciclista {
 export interface PosicaoAdicional {
   posicao: number
   nome: string
-  tempo?: string   // diferença para o líder, ex: "0:06", "4:02", "s.t."
+  tempo?: string
 }
 export interface EtapaResultado {
   id: string
@@ -45,10 +45,11 @@ export interface EtapaResultado {
   data_etapa: string
   classificacao_geral_top20: string[]
   posicoes_adicionais: PosicaoAdicional[]
-  tempos_classificacao: Record<string, string>   // nome_lowercase → "0:06"
+  tempos_classificacao: Record<string, string>
   camisola_sprint?: string
   camisola_montanha?: string
   camisola_juventude?: string
+  perfil_url?: string | null
   is_final: boolean
   inserido_por?: string
   created_at: string
@@ -147,7 +148,6 @@ export interface LeaderboardProva {
 // VITÓRIAS AGREGADAS
 // ============================================================
 
-/** Breakdown de Grandes Voltas por jogador (Giro / Tour / Vuelta) */
 export interface GrandesVoltasEntry {
   userId: string
   giro: number
