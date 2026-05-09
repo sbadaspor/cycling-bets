@@ -50,6 +50,7 @@ export interface EtapaResultado {
   camisola_montanha?: string
   camisola_juventude?: string
   perfil_url?: string | null
+  gpx_url?: string | null
   is_final: boolean
   inserido_por?: string
   created_at: string
