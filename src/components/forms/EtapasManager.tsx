@@ -39,6 +39,7 @@ export default function EtapasManager({ prova }: Props) {
   const [perfilUrl, setPerfilUrl] = useState('')
   const [gpxUrl, setGpxUrl] = useState('')
   const [gpxUploading, setGpxUploading] = useState(false)
+  const csvInputRef = useRef<HTMLInputElement>(null)
   const [isFinal, setIsFinal] = useState(false)
   const [preenchidoDeAnterior, setPreenchidoDeAnterior] = useState(false)
 
@@ -263,7 +264,13 @@ export default function EtapasManager({ prova }: Props) {
   }
 
   function processarCSV(text: string) {
-    const linhas = text.trim().split('\n').filter(l => l.trim())
+    const todasLinhas = text.trim().split('\n').filter(l => l.trim())
+    // Ignorar cabeçalho se existir (primeira linha com "posicao" ou "pos")
+    const linhas = todasLinhas.filter(l => {
+      const primeiro = l.split(',')[0].trim().toLowerCase()
+      return primeiro !== 'posicao' && primeiro !== 'pos' && primeiro !== 'position' && !isNaN(parseInt(primeiro))
+    })
+
     const parsed: { pos: number; nome: string; tempo: string }[] = []
     const errosCSV: string[] = []
 
@@ -278,7 +285,6 @@ export default function EtapasManager({ prova }: Props) {
     }
 
     if (!parsed.length) { setErro('Nenhuma linha válida encontrada no CSV.'); return }
-    if (errosCSV.length > 0) { setErro(`Erros: ${errosCSV.slice(0, 3).join('; ')}`); return }
 
     parsed.sort((a, b) => a.pos - b.pos)
     const novas = Array(numPos).fill('')
@@ -622,8 +628,21 @@ export default function EtapasManager({ prova }: Props) {
             <div className="card">
               <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>📄 Importar via CSV</h3>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '0.875rem', lineHeight: 1.5 }}>
-                Formato: <code style={{ background: 'var(--surface-2)', padding: '1px 5px', borderRadius: '3px', fontSize: '0.75rem' }}>posicao,nome,tempo</code> — uma linha por ciclista, sem cabeçalho. O tempo é opcional.
+                Formato: <code style={{ background: 'var(--surface-2)', padding: '1px 5px', borderRadius: '3px', fontSize: '0.75rem' }}>posicao,nome,tempo</code> — uma linha por ciclista. Cabeçalho ignorado automaticamente.
               </p>
+
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  processarCSV(await file.text())
+                  e.target.value = '' // reset para permitir re-upload do mesmo ficheiro
+                }}
+              />
 
               <div
                 style={{
@@ -632,17 +651,7 @@ export default function EtapasManager({ prova }: Props) {
                   border: '2px dashed rgba(200,244,0,0.25)', background: 'rgba(200,244,0,0.03)',
                   transition: 'all 0.15s',
                 }}
-                onClick={() => {
-                  const input = document.createElement('input')
-                  input.type = 'file'
-                  input.accept = '.csv,text/csv'
-                  input.onchange = async (e) => {
-                    const file = (e.target as HTMLInputElement).files?.[0]
-                    if (!file) return
-                    processarCSV(await file.text())
-                  }
-                  input.click()
-                }}
+                onClick={() => csvInputRef.current?.click()}
                 onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'rgba(200,244,0,0.6)' }}
                 onDragLeave={e => { e.currentTarget.style.borderColor = 'rgba(200,244,0,0.25)' }}
                 onDrop={async e => {
