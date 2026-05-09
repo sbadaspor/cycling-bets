@@ -15,15 +15,19 @@ import QuemApostouCard from '@/components/dashboard/QuemApostouCard'
 import AguardandoApostas from '@/components/dashboard/AguardandoApostas'
 import MomentoDaVirada from '@/components/dashboard/MomentoDaVirada'
 import SimuladorEtapa from '@/components/dashboard/SimuladorEtapa'
+import EtapaSelector from '@/components/dashboard/EtapaSelector'
 import { nomeExibir, inicialAvatar } from '@/lib/perfil'
 import type { CategoriaProvaTipo } from '@/types'
 
 interface Props {
   params: Promise<{ provaId: string }>
+  searchParams: Promise<{ etapa?: string }>
 }
 
-export default async function ProvaPage({ params }: Props) {
+export default async function ProvaPage({ params, searchParams }: Props) {
   const { provaId } = await params
+  const { etapa: etapaParam } = await searchParams
+
   let prova
   try { prova = await getProva(provaId) } catch { redirect('/') }
 
@@ -48,7 +52,27 @@ export default async function ProvaPage({ params }: Props) {
   const st = statusMap[prova.status] ?? statusMap['finalizada']
   const minhaEntrada = user ? leaderboard.find(e => e.perfil.id === user.id) : null
   const isMultiEtapas = etapas.length > 1
-  const ultimaEtapa = etapas.length > 0 ? etapas[etapas.length - 1] : null
+
+  // Determinar etapa activa
+  // Etapas com resultado = têm classificação não vazia
+  const etapasComResultado = etapas.filter(e =>
+    e.classificacao_geral_top20?.some(c => c?.trim())
+  )
+  const ultimaComResultado = etapasComResultado.length > 0
+    ? etapasComResultado[etapasComResultado.length - 1]
+    : null
+
+  const etapaActivaNum = etapaParam
+    ? parseInt(etapaParam)
+    : ultimaComResultado?.numero_etapa ?? etapas[0]?.numero_etapa ?? null
+
+  const etapaActiva = etapas.find(e => e.numero_etapa === etapaActivaNum) ?? ultimaComResultado ?? etapas[0] ?? null
+  const etapaTemResultado = etapaActiva
+    ? etapaActiva.classificacao_geral_top20?.some(c => c?.trim())
+    : false
+
+  // Data de hoje para determinar estado de cada etapa
+  const hoje = new Date().toISOString().split('T')[0]
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -62,15 +86,13 @@ export default async function ProvaPage({ params }: Props) {
         <h1 className="section-title" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{prova.nome}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
           <span className={`badge ${st.cls}`}>{st.label}</span>
-          {ultimaEtapa && (
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', background: 'var(--surface-2)', padding: '0.15rem 0.6rem', borderRadius: '999px', border: '1px solid var(--border)' }}>
-              Etapa {ultimaEtapa.numero_etapa}{ultimaEtapa.is_final ? ' · Final' : ''}
-            </span>
-          )}
           <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
             {new Date(prova.data_inicio).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' })}
             {' → '}
             {new Date(prova.data_fim).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
+            {etapasComResultado.length}/{etapas.length} etapas
           </span>
         </div>
       </div>
@@ -82,14 +104,29 @@ export default async function ProvaPage({ params }: Props) {
         </div>
       )}
 
+      {/* Selector de etapas — só se houver etapas */}
+      {etapas.length > 0 && (
+        <div style={{ marginBottom: '1.25rem' }}>
+          <EtapaSelector
+            etapas={etapas}
+            etapaActivaNum={etapaActivaNum}
+            provaId={provaId}
+            hoje={hoje}
+            etapasComResultado={etapasComResultado.map(e => e.numero_etapa)}
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: '1.25rem' }}>
         {/* Coluna principal */}
         <div className="lg:col-span-3" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-          {/* Leaderboard */}
+          {/* Classificação */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
-              <h2 className="section-title animate-fade-up" style={{ fontSize: '1.15rem' }}>Classificação</h2>
+              <h2 className="section-title animate-fade-up" style={{ fontSize: '1.15rem' }}>
+                {etapaActiva ? `Classificação — Etapa ${etapaActiva.numero_etapa}` : 'Classificação'}
+              </h2>
               {minhaEntrada && leaderboard.length > 1 && (
                 <Link
                   href={`/provas/${provaId}/apostas/${user!.id}?comparar=todos`}
@@ -109,6 +146,15 @@ export default async function ProvaPage({ params }: Props) {
                 {prova.status === 'aberta' && user && (
                   <Link href={`/apostas/${provaId}`} className="btn-primary" style={{ display: 'inline-flex' }}>Fazer Aposta →</Link>
                 )}
+              </div>
+            ) : !etapaTemResultado ? (
+              <div className="card animate-fade-up delay-1" style={{ textAlign: 'center', padding: '2.5rem 1.25rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+                <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>
+                  {etapaActiva && etapaActiva.data_etapa > hoje
+                    ? `Esta etapa realiza-se a ${new Date(etapaActiva.data_etapa).toLocaleDateString('pt-PT', { day: 'numeric', month: 'long' })}.`
+                    : 'Classificação ainda não inserida.'}
+                </p>
               </div>
             ) : (
               <div className="card-flush animate-fade-up delay-1">
@@ -145,58 +191,89 @@ export default async function ProvaPage({ params }: Props) {
             )}
           </div>
 
-          {/* Simulador — só durante a corrida com pelo menos 1 etapa inserida */}
-          {prova.status === 'fechada' && apostas.length > 0 && ultimaEtapa && (
+          {/* Simulador — só na última etapa com resultado durante a corrida */}
+          {prova.status === 'fechada' && apostas.length > 0 && ultimaComResultado &&
+            etapaActiva?.numero_etapa === ultimaComResultado.numero_etapa && (
             <SimuladorEtapa
               apostas={apostas}
-              ultimaEtapa={ultimaEtapa}
+              ultimaEtapa={ultimaComResultado}
               categoria={prova.categoria as CategoriaProvaTipo}
             />
           )}
 
-          {/* Linha do Tempo — só com 2+ etapas */}
-          {isMultiEtapas && apostas.length > 0 && (
-            <MomentoDaVirada etapas={etapas} apostas={apostas} categoria={prova.categoria as CategoriaProvaTipo} />
+          {/* Linha do Tempo */}
+          {isMultiEtapas && apostas.length > 0 && etapasComResultado.length > 1 && (
+            <MomentoDaVirada etapas={etapasComResultado} apostas={apostas} categoria={prova.categoria as CategoriaProvaTipo} />
           )}
         </div>
 
         {/* Sidebar */}
         <div className="lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
-          {/* Resultado Oficial */}
-          <div>
-            <h2 className="section-title animate-fade-up delay-1" style={{ fontSize: '1.15rem', marginBottom: '0.85rem' }}>Resultado Oficial</h2>
-            {resultado ? (
-              <div className="card-flush animate-fade-up delay-2">
-                <div style={{ padding: '0.7rem 1rem', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-                  <p style={{ fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Top {config.numPosicoes} oficial</p>
-                </div>
-                <div>
-                  {resultado.resultado_top20.map((ciclista, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 1rem', borderBottom: idx < resultado.resultado_top20.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 800, width: 20, textAlign: 'center', flexShrink: 0, fontFamily: 'Barlow Condensed, sans-serif', color: idx < 10 ? 'var(--lime)' : 'var(--text-sub)' }}>{idx + 1}</span>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text)' }}>{ciclista}</span>
-                    </div>
-                  ))}
-                </div>
-                {(resultado.camisola_sprint || resultado.camisola_montanha || resultado.camisola_juventude) && (
-                  <div style={{ borderTop: '1px solid var(--border)', padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.25rem' }}>Camisolas</p>
-                    {resultado.camisola_sprint && <p style={{ fontSize: '0.82rem', color: 'var(--text)' }}>🟢 <span style={{ color: 'var(--text-dim)' }}>Sprint:</span> {resultado.camisola_sprint}</p>}
-                    {resultado.camisola_montanha && <p style={{ fontSize: '0.82rem', color: 'var(--text)' }}>🔴 <span style={{ color: 'var(--text-dim)' }}>Montanha:</span> {resultado.camisola_montanha}</p>}
-                    {resultado.camisola_juventude && <p style={{ fontSize: '0.82rem', color: 'var(--text)' }}>⚪ <span style={{ color: 'var(--text-dim)' }}>Juventude:</span> {resultado.camisola_juventude}</p>}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="card animate-fade-up delay-2" style={{ textAlign: 'center', padding: '2.5rem 1.25rem' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⏳</div>
-                <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>
-                  {prova.status === 'finalizada' ? 'Resultado não disponível.' : 'A aguardar o resultado oficial.'}
+          {/* Mapa e perfil da etapa seleccionada */}
+          {etapaActiva && (etapaActiva.perfil_url || etapaActiva.gpx_url) && (
+            <div className="card-flush animate-fade-up" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '0.7rem 1rem', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+                <p style={{ fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                  Etapa {etapaActiva.numero_etapa} · {new Date(etapaActiva.data_etapa).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' })}
                 </p>
               </div>
-            )}
-          </div>
+              <div style={{ padding: '0.875rem' }}>
+                {etapaActiva.gpx_url ? (
+                  // Com GPX: mapa + elevação + perfil imagem
+                  <EtapaMapWrapper
+                    gpxUrl={etapaActiva.gpx_url}
+                    perfilUrl={etapaActiva.perfil_url}
+                    numeroEtapa={etapaActiva.numero_etapa}
+                    dataEtapa={etapaActiva.data_etapa}
+                  />
+                ) : etapaActiva.perfil_url ? (
+                  // Só perfil imagem
+                  <div style={{ borderRadius: '0.625rem', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    <img
+                      src={etapaActiva.perfil_url}
+                      alt={`Perfil Etapa ${etapaActiva.numero_etapa}`}
+                      style={{ width: '100%', height: 'auto', display: 'block' }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          {/* Resultado Oficial */}
+          {etapaTemResultado && (
+            <div>
+              <h2 className="section-title animate-fade-up delay-1" style={{ fontSize: '1.15rem', marginBottom: '0.85rem' }}>Resultado Oficial</h2>
+              {resultado ? (
+                <div className="card-flush animate-fade-up delay-2">
+                  <div style={{ padding: '0.7rem 1rem', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Top {config.numPosicoes} oficial</p>
+                  </div>
+                  <div>
+                    {resultado.resultado_top20.map((ciclista, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 1rem', borderBottom: idx < resultado.resultado_top20.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 800, width: 20, textAlign: 'center', flexShrink: 0, fontFamily: 'Barlow Condensed, sans-serif', color: idx < 10 ? 'var(--lime)' : 'var(--text-sub)' }}>{idx + 1}</span>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text)' }}>{ciclista}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {(resultado.camisola_sprint || resultado.camisola_montanha || resultado.camisola_juventude) && (
+                    <div style={{ borderTop: '1px solid var(--border)', padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      <p style={{ fontSize: '0.65rem', color: 'var(--text-sub)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.25rem' }}>Camisolas</p>
+                      {resultado.camisola_sprint && <p style={{ fontSize: '0.82rem', color: 'var(--text)' }}>🟢 <span style={{ color: 'var(--text-dim)' }}>Sprint:</span> {resultado.camisola_sprint}</p>}
+                      {resultado.camisola_montanha && <p style={{ fontSize: '0.82rem', color: 'var(--text)' }}>🔴 <span style={{ color: 'var(--text-dim)' }}>Montanha:</span> {resultado.camisola_montanha}</p>}
+                      {resultado.camisola_juventude && <p style={{ fontSize: '0.82rem', color: 'var(--text)' }}>⚪ <span style={{ color: 'var(--text-dim)' }}>Juventude:</span> {resultado.camisola_juventude}</p>}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="card animate-fade-up delay-2" style={{ textAlign: 'center', padding: '2.5rem 1.25rem' }}>
+                  <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>Resultado não disponível.</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Quem apostou em quem */}
           {apostas.length > 0 && prova.status !== 'aberta' && (
@@ -206,4 +283,16 @@ export default async function ProvaPage({ params }: Props) {
       </div>
     </div>
   )
+}
+
+// Wrapper para o EtapaMap (client component) — importado dinamicamente para não bloquear SSR
+function EtapaMapWrapper(props: {
+  gpxUrl: string
+  perfilUrl?: string | null
+  numeroEtapa: number
+  dataEtapa: string
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const EtapaMap = require('@/components/dashboard/EtapaMap').default
+  return <EtapaMap {...props} />
 }
