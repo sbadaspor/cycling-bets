@@ -6,7 +6,6 @@ import type { Ciclista, EtapaResultado, PosicaoAdicional, Prova } from '@/types'
 import CyclistAutocomplete from './CyclistAutocomplete'
 import { getConfigCategoria } from '@/lib/categoriaConfig'
 import ImageResultsParser from './ImageResultsParser'
-import CsvResultsParser from './CsvResultsParser'
 
 interface Props {
   prova: Prova
@@ -25,7 +24,7 @@ export default function EtapasManager({ prova }: Props) {
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [modo, setModo] = useState<'lista' | 'editar'>('lista')
-  const [modoInput, setModoInput] = useState<'manual' | 'imagem' | 'csv'>('manual')
+  const [modoInput, setModoInput] = useState<'manual' | 'imagem'>('manual')
   const [temposMap, setTemposMap] = useState<Record<string, string>>({})
 
   // Formulário
@@ -37,6 +36,7 @@ export default function EtapasManager({ prova }: Props) {
   const [camisolaSprint, setCamisolaSprint] = useState('')
   const [camisolaMontanha, setCamisolaMontanha] = useState('')
   const [camisolaJuventude, setCamisolaJuventude] = useState('')
+  const [perfilUrl, setPerfilUrl] = useState('')
   const [isFinal, setIsFinal] = useState(false)
   const [preenchidoDeAnterior, setPreenchidoDeAnterior] = useState(false)
 
@@ -83,6 +83,7 @@ export default function EtapasManager({ prova }: Props) {
       setPreenchidoDeAnterior(false)
     }
 
+    setPerfilUrl('')
     setIsFinal(!config.multiEtapas)
     setErro(null)
     setSucesso(null)
@@ -108,6 +109,7 @@ export default function EtapasManager({ prova }: Props) {
     setCamisolaSprint(e.camisola_sprint ?? '')
     setCamisolaMontanha(e.camisola_montanha ?? '')
     setCamisolaJuventude(e.camisola_juventude ?? '')
+    setPerfilUrl(e.perfil_url ?? '')
     setIsFinal(e.is_final || !config.multiEtapas)
     setPreenchidoDeAnterior(false)
     setErro(null)
@@ -216,6 +218,7 @@ export default function EtapasManager({ prova }: Props) {
           camisola_sprint: config.temCamisolas ? camisolaSprint.trim() : '',
           camisola_montanha: config.temCamisolas ? camisolaMontanha.trim() : '',
           camisola_juventude: config.temCamisolas ? camisolaJuventude.trim() : '',
+          perfil_url: perfilUrl.trim() || null,
           is_final: !config.multiEtapas ? true : isFinal,
         }),
       })
@@ -234,38 +237,6 @@ export default function EtapasManager({ prova }: Props) {
     } finally {
       setLoading(false)
     }
-  }
-
-  // Função partilhada para aplicar resultados importados (foto ou CSV)
-  function aplicarImportacao({ posicoes: posImport, todosOsCiclistas, camisola_sprint = '', camisola_montanha = '', camisola_juventude = '' }: {
-    posicoes: string[]
-    todosOsCiclistas: Array<{ posicao: number; nome: string; tempo: string }>
-    camisola_sprint?: string
-    camisola_montanha?: string
-    camisola_juventude?: string
-  }) {
-    const novas = Array(numPos).fill('')
-    posImport.slice(0, numPos).forEach((nome, i) => { novas[i] = nome })
-    setPosicoes(novas)
-    setCamisolaSprint(camisola_sprint)
-    setCamisolaMontanha(camisola_montanha)
-    setCamisolaJuventude(camisola_juventude)
-
-    const nomesNoTop = new Set(
-      novas.filter(n => n?.trim()).map(n => n.trim().toLowerCase())
-    )
-
-    const adicionaisFromImport = todosOsCiclistas
-      .filter(c => c.posicao > numPos && c.nome?.trim() && !nomesNoTop.has(c.nome.trim().toLowerCase()))
-      .map(c => ({ posicao: c.posicao, nome: c.nome, tempo: c.tempo }))
-    setAdicionais(adicionaisFromImport)
-
-    const mapa: Record<string, string> = {}
-    todosOsCiclistas.forEach(c => {
-      if (c.nome?.trim()) mapa[c.nome.trim().toLowerCase()] = c.tempo ?? ''
-    })
-    setTemposMap(mapa)
-    setModoInput('manual')
   }
 
   function adicionarPosicao() {
@@ -289,15 +260,6 @@ export default function EtapasManager({ prova }: Props) {
   const tituloLista = config.multiEtapas ? 'Etapas inseridas' : 'Resultado da prova'
   const btnNovaEtapa = config.multiEtapas ? '➕ Nova etapa' : '➕ Inserir resultado'
   const podeCriarNova = config.multiEtapas || etapas.length === 0
-
-  const btnStyle = (ativo: boolean) => ({
-    padding: '0.5rem 1rem',
-    borderRadius: '0.625rem',
-    border: `1px solid ${ativo ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
-    background: ativo ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
-    color: ativo ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
-    fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
-  })
 
   return (
     <div className="space-y-6">
@@ -379,6 +341,11 @@ export default function EtapasManager({ prova }: Props) {
                             +{numAd} adicionais
                           </span>
                         )}
+                        {e.perfil_url && (
+                          <span className="badge bg-purple-900/50 text-purple-400 border border-purple-800 text-xs">
+                            🗺️ Perfil
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-zinc-500 mt-1">
                         Vencedor: <span className="text-amber-400">{e.classificacao_geral_top20[0]}</span>
@@ -452,21 +419,62 @@ export default function EtapasManager({ prova }: Props) {
               </div>
             </div>
 
-            {/* Toggle manual / foto / csv */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
-              <button onClick={() => setModoInput('manual')} style={btnStyle(modoInput === 'manual')}>
-                ✍️ Manual
+            {/* URL do perfil da etapa */}
+            <div style={{ marginTop: '1rem' }}>
+              <label className="block text-sm font-medium text-zinc-400 mb-1.5">
+                🗺️ URL do perfil da etapa (opcional)
+              </label>
+              <input
+                type="url"
+                className="input-field"
+                value={perfilUrl}
+                onChange={e => setPerfilUrl(e.target.value)}
+                placeholder="https://www.procyclingstats.com/images/profiles/..."
+              />
+              {perfilUrl && (
+                <div style={{ marginTop: '0.625rem', borderRadius: '0.625rem', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <img
+                    src={perfilUrl}
+                    alt="Perfil da etapa"
+                    style={{ width: '100%', height: 'auto', display: 'block' }}
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Toggle manual / imagem */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
+              <button
+                onClick={() => setModoInput('manual')}
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.625rem',
+                  border: `1px solid ${modoInput === 'manual' ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
+                  background: modoInput === 'manual' ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
+                  color: modoInput === 'manual' ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
+                  fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
+                }}
+              >
+                ✍️ Inserir manualmente
               </button>
-              <button onClick={() => setModoInput('imagem')} style={btnStyle(modoInput === 'imagem')}>
-                📸 Foto
-              </button>
-              <button onClick={() => setModoInput('csv')} style={btnStyle(modoInput === 'csv')}>
-                📄 CSV
+              <button
+                onClick={() => setModoInput('imagem')}
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.625rem',
+                  border: `1px solid ${modoInput === 'imagem' ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
+                  background: modoInput === 'imagem' ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
+                  color: modoInput === 'imagem' ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
+                  fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
+                }}
+              >
+                📸 Importar da foto
               </button>
             </div>
           </div>
 
-          {/* Modo foto */}
+          {/* Modo imagem */}
           {modoInput === 'imagem' && (
             <div className="card">
               <ImageResultsParser
@@ -475,21 +483,28 @@ export default function EtapasManager({ prova }: Props) {
                 temCamisolas={config.temCamisolas}
                 numPosicoes={numPos}
                 onAplicar={({ posicoes, camisola_sprint, camisola_montanha, camisola_juventude, todosOsCiclistas }) => {
-                  aplicarImportacao({ posicoes, todosOsCiclistas, camisola_sprint, camisola_montanha, camisola_juventude })
-                }}
-                onCancelar={() => setModoInput('manual')}
-              />
-            </div>
-          )}
+                  const novas = Array(numPos).fill('')
+                  posicoes.slice(0, numPos).forEach((nome, i) => { novas[i] = nome })
+                  setPosicoes(novas)
+                  setCamisolaSprint(camisola_sprint)
+                  setCamisolaMontanha(camisola_montanha)
+                  setCamisolaJuventude(camisola_juventude)
 
-          {/* Modo CSV */}
-          {modoInput === 'csv' && (
-            <div className="card">
-              <CsvResultsParser
-                ciclistas={ciclistas}
-                numPosicoes={numPos}
-                onAplicar={({ posicoes, todosOsCiclistas }) => {
-                  aplicarImportacao({ posicoes, todosOsCiclistas })
+                  const nomesNoTop = new Set(
+                    novas.filter(n => n?.trim()).map(n => n.trim().toLowerCase())
+                  )
+
+                  const adicionaisFromImage = todosOsCiclistas
+                    .filter(c => c.posicao > numPos && c.nome?.trim() && !nomesNoTop.has(c.nome.trim().toLowerCase()))
+                    .map(c => ({ posicao: c.posicao, nome: c.nome, tempo: c.tempo }))
+                  setAdicionais(adicionaisFromImage)
+
+                  const mapa: Record<string, string> = {}
+                  todosOsCiclistas.forEach(c => {
+                    if (c.nome?.trim()) mapa[c.nome.trim().toLowerCase()] = c.tempo ?? ''
+                  })
+                  setTemposMap(mapa)
+                  setModoInput('manual')
                 }}
                 onCancelar={() => setModoInput('manual')}
               />
@@ -583,13 +598,13 @@ export default function EtapasManager({ prova }: Props) {
                 <>
                   {temClassif && totalOcultos > 0 && (
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', marginBottom: '0.75rem' }}>
-                      ℹ️ {totalOcultos} posições com tempos guardadas da importação (não visíveis aqui — são usadas para mostrar os tempos aos jogadores).
+                      ℹ️ {totalOcultos} posições com tempos guardadas da foto (não visíveis aqui — são usadas para mostrar os tempos aos jogadores).
                     </div>
                   )}
                   {visiveis.length === 0 ? (
                     <p className="text-zinc-500 text-sm text-center py-6">
                       {temClassif
-                        ? 'Todos os tempos foram importados. Podes adicionar posições extra se quiseres.'
+                        ? 'Todos os tempos foram importados da foto. Podes adicionar posições extra se quiseres.'
                         : <>Sem posições adicionais. Clica em <strong>Adicionar</strong> para começares.</>}
                     </p>
                   ) : (
@@ -709,10 +724,9 @@ export default function EtapasManager({ prova }: Props) {
                 ? '💾 Atualizar'
                 : '➕ Guardar'}
           </button>
-          </>)} {/* fim modoInput === 'manual' */}
+          </>)}
         </>
       )}
     </div>
   )
 }
-   
