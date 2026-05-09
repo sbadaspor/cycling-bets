@@ -85,7 +85,6 @@ export default function EtapasManager({ prova }: Props) {
     }
 
     setPerfilUrl('')
-    setGpxUrl('')
     setIsFinal(!config.multiEtapas)
     setErro(null)
     setSucesso(null)
