@@ -24,7 +24,7 @@ export default function EtapasManager({ prova }: Props) {
   const [erro, setErro] = useState<string | null>(null)
   const [sucesso, setSucesso] = useState<string | null>(null)
   const [modo, setModo] = useState<'lista' | 'editar'>('lista')
-  const [modoInput, setModoInput] = useState<'manual' | 'imagem'>('manual')
+  const [modoInput, setModoInput] = useState<'manual' | 'imagem' | 'csv'>('manual')
   const [temposMap, setTemposMap] = useState<Record<string, string>>({})
 
   // Formulário
@@ -517,34 +517,27 @@ export default function EtapasManager({ prova }: Props) {
               )}
             </div>
 
-            {/* Toggle manual / imagem */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)' }}>
-              <button
-                onClick={() => setModoInput('manual')}
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: '0.625rem',
-                  border: `1px solid ${modoInput === 'manual' ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
-                  background: modoInput === 'manual' ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
-                  color: modoInput === 'manual' ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
-                  fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
-                }}
-              >
-                ✍️ Inserir manualmente
-              </button>
-              <button
-                onClick={() => setModoInput('imagem')}
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: '0.625rem',
-                  border: `1px solid ${modoInput === 'imagem' ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
-                  background: modoInput === 'imagem' ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
-                  color: modoInput === 'imagem' ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
-                  fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
-                }}
-              >
-                📸 Importar da foto
-              </button>
+            {/* Toggle manual / imagem / csv */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+              {[
+                { key: 'manual', label: '✍️ Manual' },
+                { key: 'csv', label: '📄 CSV' },
+                { key: 'imagem', label: '📸 Foto' },
+              ].map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setModoInput(opt.key as 'manual' | 'csv' | 'imagem')}
+                  style={{
+                    padding: '0.5rem 1rem', borderRadius: '0.625rem',
+                    border: `1px solid ${modoInput === opt.key ? 'rgba(200,244,0,0.4)' : 'var(--border-hi)'}`,
+                    background: modoInput === opt.key ? 'rgba(200,244,0,0.1)' : 'var(--surface-2)',
+                    color: modoInput === opt.key ? 'rgba(200,244,0,0.9)' : 'var(--text-dim)',
+                    fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -582,6 +575,83 @@ export default function EtapasManager({ prova }: Props) {
                 }}
                 onCancelar={() => setModoInput('manual')}
               />
+            </div>
+          )}
+
+          {/* Modo CSV */}
+          {modoInput === 'csv' && (
+            <div className="card">
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', marginBottom: '0.5rem' }}>📄 Importar via CSV</h3>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '0.875rem', lineHeight: 1.5 }}>
+                Formato: <code style={{ background: 'var(--surface-2)', padding: '1px 5px', borderRadius: '3px', fontSize: '0.75rem' }}>posicao,nome,tempo</code> — uma linha por ciclista, sem cabeçalho. O tempo é opcional.
+              </p>
+              <textarea
+                rows={12}
+                placeholder={'1,MAGNIER Paul,0:00\n2,ANDRESEN Tobias Lund,0:04\n3,TAROZZI Manuele,0:04\n...'}
+                id="csv-textarea"
+                style={{
+                  width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border-hi)',
+                  borderRadius: '0.5rem', padding: '0.625rem 0.75rem', fontSize: '0.78rem',
+                  color: 'var(--text)', fontFamily: 'monospace', resize: 'vertical',
+                  outline: 'none', lineHeight: 1.6,
+                }}
+              />
+              <div style={{ display: 'flex', gap: '0.625rem', marginTop: '0.75rem' }}>
+                <button
+                  onClick={() => {
+                    const textarea = document.getElementById('csv-textarea') as HTMLTextAreaElement
+                    if (!textarea) return
+                    const linhas = textarea.value.trim().split('\n').filter(l => l.trim())
+                    const parsed: { pos: number; nome: string; tempo: string }[] = []
+                    const errosCSV: string[] = []
+
+                    for (const linha of linhas) {
+                      const partes = linha.split(',')
+                      if (partes.length < 2) continue
+                      const pos = parseInt(partes[0].trim())
+                      const nome = partes[1].trim()
+                      const tempo = partes[2]?.trim() ?? ''
+                      if (isNaN(pos) || !nome) {
+                        errosCSV.push(`Linha inválida: "${linha}"`)
+                        continue
+                      }
+                      parsed.push({ pos, nome, tempo })
+                    }
+
+                    if (!parsed.length) { setErro('Nenhuma linha válida encontrada no CSV.'); return }
+                    if (errosCSV.length) { setErro(`Erros: ${errosCSV.slice(0, 3).join('; ')}`); return }
+
+                    parsed.sort((a, b) => a.pos - b.pos)
+                    const novas = Array(numPos).fill('')
+                    const mapa: Record<string, string> = {}
+
+                    parsed.forEach(item => {
+                      const idx = item.pos - 1
+                      if (idx >= 0 && idx < numPos) novas[idx] = item.nome
+                      if (item.nome?.trim()) mapa[item.nome.trim().toLowerCase()] = item.tempo ?? ''
+                    })
+                    setPosicoes(novas)
+                    setTemposMap(mapa)
+
+                    const nomesTop = new Set(novas.filter(Boolean).map(n => n.toLowerCase()))
+                    const adicionaisCSV = parsed
+                      .filter(item => item.pos > numPos && item.nome?.trim() && !nomesTop.has(item.nome.trim().toLowerCase()))
+                      .map(item => ({ posicao: item.pos, nome: item.nome, tempo: item.tempo }))
+                    setAdicionais(adicionaisCSV)
+                    setModoInput('manual')
+                    setSucesso(`✅ CSV importado: ${novas.filter(Boolean).length} posições no Top-${numPos}${adicionaisCSV.length > 0 ? `, ${adicionaisCSV.length} adicionais` : ''}.`)
+                  }}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '0.625rem', cursor: 'pointer', background: 'rgba(200,244,0,0.1)', border: '1px solid rgba(200,244,0,0.3)', color: 'var(--lime)', fontWeight: 600, fontSize: '0.82rem' }}
+                >
+                  ✅ Aplicar CSV
+                </button>
+                <button
+                  onClick={() => setModoInput('manual')}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '0.625rem', cursor: 'pointer', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-dim)', fontSize: '0.82rem' }}
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           )}
 
