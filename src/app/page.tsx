@@ -7,13 +7,16 @@ import {
   getDadosVitorias,
   getHomepageStats,
   getActivityFeed,
+  getTodasEtapas,
 } from '@/lib/queries'
 import { categorizarProva } from '@/lib/provaStatus'
 import { ProvasList } from '@/components/dashboard/ProvasList'
 import ClassificacaoProvaTable from '@/components/dashboard/ClassificacaoProvaTable'
 import VitoriasJogadores from '@/components/dashboard/VitoriasJogadores'
 import ActivityFeed from '@/components/dashboard/ActivityFeed'
+import MomentoDaVirada from '@/components/dashboard/MomentoDaVirada'
 import AuthHashHandler from '@/components/auth/AuthHashHandler'
+import type { CategoriaProvaTipo } from '@/types'
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -37,11 +40,12 @@ export default async function HomePage() {
   const [dadosADecorrer, stats, feedItems] = await Promise.all([
     Promise.all(
       provasADecorrer.map(async (prova) => {
-        const [apostas, ultimaEtapa] = await Promise.all([
+        const [apostas, ultimaEtapa, todasEtapas] = await Promise.all([
           getApostasProvaComPerfil(prova.id),
           getUltimaEtapa(prova.id),
+          getTodasEtapas(prova.id).catch(() => []),
         ])
-        return { prova, apostas, ultimaEtapa }
+        return { prova, apostas, ultimaEtapa, todasEtapas }
       })
     ),
     getHomepageStats().catch(() => ({ totalApostas: 0, totalJogadores: 0, provasAtivas: 0 })),
@@ -52,16 +56,18 @@ export default async function HomePage() {
     prova: typeof provas[number]
     apostas: Awaited<ReturnType<typeof getApostasProvaComPerfil>>
     ultimaEtapa: Awaited<ReturnType<typeof getUltimaEtapa>>
+    todasEtapas: Awaited<ReturnType<typeof getTodasEtapas>>
   } | null = null
 
   if (dadosADecorrer.length === 0) {
     const ultima = await getUltimaProvaFinalizada()
     if (ultima) {
-      const [apostas, ultimaEtapa] = await Promise.all([
+      const [apostas, ultimaEtapa, todasEtapas] = await Promise.all([
         getApostasProvaComPerfil(ultima.id),
         getUltimaEtapa(ultima.id),
+        getTodasEtapas(ultima.id).catch(() => []),
       ])
-      dadosUltimaFinalizada = { prova: ultima, apostas, ultimaEtapa }
+      dadosUltimaFinalizada = { prova: ultima, apostas, ultimaEtapa, todasEtapas }
     }
   }
 
@@ -135,16 +141,34 @@ export default async function HomePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: '1.25rem' }}>
         <div className="lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {dadosADecorrer.length > 0 ? (
-            dadosADecorrer.map(({ prova, apostas, ultimaEtapa }) => (
-              <ClassificacaoProvaTable key={prova.id} prova={prova} apostas={apostas} ultimaEtapa={ultimaEtapa} />
+            dadosADecorrer.map(({ prova, apostas, ultimaEtapa, todasEtapas }) => (
+              <div key={prova.id} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <ClassificacaoProvaTable prova={prova} apostas={apostas} ultimaEtapa={ultimaEtapa} />
+                {todasEtapas.length > 1 && apostas.length > 1 && (
+                  <MomentoDaVirada
+                    etapas={todasEtapas}
+                    apostas={apostas}
+                    categoria={prova.categoria as CategoriaProvaTipo}
+                  />
+                )}
+              </div>
             ))
           ) : dadosUltimaFinalizada ? (
-            <ClassificacaoProvaTable
-              prova={dadosUltimaFinalizada.prova}
-              apostas={dadosUltimaFinalizada.apostas}
-              ultimaEtapa={dadosUltimaFinalizada.ultimaEtapa}
-              titulo={`Última prova — ${dadosUltimaFinalizada.prova.nome}`}
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <ClassificacaoProvaTable
+                prova={dadosUltimaFinalizada.prova}
+                apostas={dadosUltimaFinalizada.apostas}
+                ultimaEtapa={dadosUltimaFinalizada.ultimaEtapa}
+                titulo={`Última prova — ${dadosUltimaFinalizada.prova.nome}`}
+              />
+              {dadosUltimaFinalizada.todasEtapas.length > 1 && dadosUltimaFinalizada.apostas.length > 1 && (
+                <MomentoDaVirada
+                  etapas={dadosUltimaFinalizada.todasEtapas}
+                  apostas={dadosUltimaFinalizada.apostas}
+                  categoria={dadosUltimaFinalizada.prova.categoria as CategoriaProvaTipo}
+                />
+              )}
+            </div>
           ) : (
             <EmptyStateProxima provasFuturas={provasFuturas} userId={user?.id} />
           )}
