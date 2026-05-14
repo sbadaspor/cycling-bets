@@ -17,13 +17,14 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
 
   const config = getConfigCategoria(categoria)
 
-  type Snapshot = { userId: string; nome: string; pontosAcum: number; lider: boolean }
+  type Snapshot = { userId: string; nome: string; pontosAcum: number; pontosEtapa: number; lider: boolean }
   const timeline: Array<{ etapa: EtapaResultado; snapshots: Snapshot[] }> = []
 
   const acumulados: Record<string, number> = {}
   apostas.forEach(a => { acumulados[a.user_id] = 0 })
 
   for (const etapa of etapas) {
+    const pontosNestaEtapa: Record<string, number> = {}
     for (const aposta of apostas) {
       const r = calcularPontos(
         aposta.apostas_top20 ?? [],
@@ -40,6 +41,7 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
         },
         categoria
       )
+      pontosNestaEtapa[aposta.user_id] = r.pontos_total
       acumulados[aposta.user_id] = (acumulados[aposta.user_id] ?? 0) + r.pontos_total
     }
 
@@ -47,6 +49,7 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
       userId: a.user_id,
       nome: nomeExibir(a.perfil, '?'),
       pontosAcum: acumulados[a.user_id] ?? 0,
+      pontosEtapa: pontosNestaEtapa[a.user_id] ?? 0,
       lider: false,
     })).sort((a, b) => b.pontosAcum - a.pontosAcum)
 
@@ -116,8 +119,8 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
               </span>
               <div style={{ flex: 1, display: 'flex', gap: '0.4rem' }}>
                 {snapshots.map((s, i) => {
-                  const maxPts = Math.max(...snapshots.map(x => x.pontosAcum), 1)
-                  const pct = Math.max(8, Math.round((s.pontosAcum / maxPts) * 100))
+                  const maxPts = Math.max(...snapshots.map(x => x.pontosEtapa), 1)
+                  const pct = s.pontosEtapa === 0 ? 4 : Math.max(8, Math.round((s.pontosEtapa / maxPts) * 100))
                   return (
                     <div key={s.userId} style={{ flex: 1 }}>
                       <div style={{ height: 6, background: 'var(--surface-2)', borderRadius: '999px', overflow: 'hidden' }}>
@@ -128,7 +131,7 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
                         }} />
                       </div>
                       <p style={{ fontSize: '0.6rem', color: i === 0 ? 'var(--lime)' : 'var(--text-sub)', marginTop: '0.2rem', fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 700 }}>
-                        {s.nome} {s.pontosAcum}
+                        {s.nome} {s.pontosEtapa}
                       </p>
                     </div>
                   )
