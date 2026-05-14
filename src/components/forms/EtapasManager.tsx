@@ -40,6 +40,27 @@ export default function EtapasManager({ prova }: Props) {
   const csvInputRef = useRef<HTMLInputElement>(null)
   const [isFinal, setIsFinal] = useState(false)
   const [preenchidoDeAnterior, setPreenchidoDeAnterior] = useState(false)
+  const [emailLoading, setEmailLoading] = useState<number | null>(null)
+
+  async function enviarEmailEtapa(numeroEtapa: number) {
+    setEmailLoading(numeroEtapa)
+    setSucesso(null)
+    setErro(null)
+    try {
+      const res = await fetch('/api/admin/send-email-etapa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prova_id: provaId, numero_etapa: numeroEtapa }),
+      })
+      const data = await res.json()
+      if (!res.ok) setErro(data.error ?? 'Erro ao enviar email.')
+      else setSucesso(`📧 Email enviado com os resultados da etapa ${numeroEtapa}!`)
+    } catch {
+      setErro('Erro de rede ao enviar email.')
+    } finally {
+      setEmailLoading(null)
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -409,6 +430,14 @@ export default function EtapasManager({ prova }: Props) {
                         className="px-3 py-1.5 text-sm rounded-md bg-zinc-700 hover:bg-zinc-600"
                       >
                         ✏️ Editar
+                      </button>
+                      <button
+                        onClick={() => enviarEmailEtapa(e.numero_etapa)}
+                        disabled={emailLoading === e.numero_etapa}
+                        className="px-3 py-1.5 text-sm rounded-md bg-blue-900/40 text-blue-300 hover:bg-blue-900/60 disabled:opacity-50"
+                        title="Enviar email com resultados desta etapa"
+                      >
+                        {emailLoading === e.numero_etapa ? '⏳' : '📧'} Email
                       </button>
                       {ehUltima && (
                         <button
