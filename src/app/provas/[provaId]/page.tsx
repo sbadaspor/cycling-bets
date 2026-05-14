@@ -13,7 +13,6 @@ import Link from 'next/link'
 import DynamicTheme from '@/components/ui/DynamicTheme'
 import QuemApostouCard from '@/components/dashboard/QuemApostouCard'
 import AguardandoApostas from '@/components/dashboard/AguardandoApostas'
-import MomentoDaVirada from '@/components/dashboard/MomentoDaVirada'
 import SimuladorEtapa from '@/components/dashboard/SimuladorEtapa'
 import EtapaSelector from '@/components/dashboard/EtapaSelector'
 import { nomeExibir, inicialAvatar } from '@/lib/perfil'
@@ -201,10 +200,7 @@ export default async function ProvaPage({ params, searchParams }: Props) {
             />
           )}
 
-          {/* Linha do Tempo */}
-          {isMultiEtapas && apostas.length > 0 && etapasComResultado.length > 1 && (
-            <MomentoDaVirada etapas={etapasComResultado} apostas={apostas} categoria={prova.categoria as CategoriaProvaTipo} />
-          )}
+
         </div>
 
         {/* Sidebar */}
