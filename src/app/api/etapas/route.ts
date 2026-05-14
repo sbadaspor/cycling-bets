@@ -267,6 +267,42 @@ export async function POST(req: NextRequest) {
     .eq('id', prova_id)
 
   // ============================================================
+  // Email com resumo da etapa (best-effort)
+  // ============================================================
+  try {
+    const { sendEmailEtapa } = await import('@/lib/sendEmailEtapa')
+
+    // Buscar apostas com perfis (incluindo email)
+    const { data: apostasComPerfil } = await supabase
+      .from('apostas')
+      .select('*, perfil:perfis(username, full_name, email)')
+      .eq('prova_id', prova_id)
+
+    const etapaInserida = {
+      numero_etapa,
+      data_etapa,
+      classificacao_geral_top20,
+      tempos_classificacao: tempos_classificacao ?? {},
+      camisola_sprint:    camisola_sprint || undefined,
+      camisola_montanha:  camisola_montanha || undefined,
+      camisola_juventude: camisola_juventude || undefined,
+      is_final: !!is_final,
+    }
+
+    if (apostasComPerfil && apostasComPerfil.length > 0) {
+      await sendEmailEtapa(
+        { nome: nomeProva, categoria },
+        etapaInserida,
+        apostasComPerfil,
+        prova_id
+      )
+    }
+  } catch (e) {
+    console.error('[email etapa]', e)
+    // best-effort — nunca bloqueia a resposta
+  }
+
+  // ============================================================
   // Notificações push personalizadas por jogador (best-effort)
   // Cada jogador recebe a sua posição e pontos actuais.
   // ============================================================
