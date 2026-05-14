@@ -80,9 +80,10 @@ function nomeJogador(a: ApostaRow): string {
 function buildEmailHtml(
   prova: ProvaInfo,
   etapa: EtapaRow,
-  apostas: ApostaRow[],       // exactamente 3, ordenadas por pts desc
+  apostas: ApostaRow[],
   pontosEtapa: ReturnType<typeof calcularPontosEtapa>[],
-  appUrl: string
+  appUrl: string,
+  provaId: string
 ): string {
   const medals = ['🥇', '🥈', '🥉']
   const cardColors = [
@@ -325,7 +326,7 @@ function buildEmailHtml(
 
   <!-- LINK -->
   <tr><td style="padding:14px 20px;text-align:center;border-top:1px solid #1a1a2e;">
-    <a href="${appUrl}/provas/${apostas[0]?.prova_id ?? ''}"
+    <a href="${appUrl}/provas/${provaId}"
        style="display:inline-block;background:#c8f400;color:#0a0a0f;padding:10px 24px;border-radius:8px;
               font-weight:700;font-size:13px;text-decoration:none;">
       Ver classificação completa →
@@ -375,7 +376,7 @@ export async function sendEmailEtapa(
   const sortedApostas = withPts.map(x => x.aposta)
   const sortedPts     = withPts.map(x => x.pts)
 
-  const html = buildEmailHtml(prova, etapa, sortedApostas, sortedPts, appUrl)
+  const html = buildEmailHtml(prova, etapa, sortedApostas, sortedPts, appUrl, provaId)
 
   const subject = etapa.is_final
     ? `🏁 ${prova.nome} — Classificação Final`
