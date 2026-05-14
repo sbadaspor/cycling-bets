@@ -76,22 +76,6 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
         <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.2rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Linha do Tempo</h2>
       </div>
 
-      {/* Classificação final */}
-      <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid var(--border)' }}>
-        <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>
-          Classificação final
-        </p>
-        {ultima.snapshots.map((s, i) => (
-          <div key={s.userId} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0', borderBottom: i < ultima.snapshots.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-            <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1rem', fontWeight: 900, width: 24, textAlign: 'center', color: i === 0 ? 'var(--lime)' : 'var(--text-sub)' }}>
-              {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}
-            </span>
-            <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: 600, color: i === 0 ? 'var(--lime)' : 'var(--text)' }}>{s.nome}</span>
-            <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.1rem', fontWeight: 800, color: i === 0 ? 'var(--lime)' : 'var(--text)' }}>{s.pontosAcum}pts</span>
-          </div>
-        ))}
-      </div>
-
       {/* Etapa decisiva */}
       {etapaDaVirada && (
         <div style={{ padding: '0.875rem 1.25rem', background: 'rgba(255,149,0,0.05)', borderBottom: '1px solid rgba(255,149,0,0.15)' }}>
