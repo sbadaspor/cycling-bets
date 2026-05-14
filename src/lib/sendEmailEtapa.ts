@@ -132,44 +132,29 @@ function buildEmailHtml(
     if (nome?.trim()) realPosMap.set(nome.trim().toLowerCase(), i + 1)
   })
 
-  // Todos os ciclistas apostados (união dos 3)
-  const todosCiclistas = new Set<string>()
-  apostas.forEach(a => (a.apostas_top20 ?? []).forEach(c => { if (c?.trim()) todosCiclistas.add(c.trim()) }))
-  etapa.classificacao_geral_top20.forEach(c => { if (c?.trim()) todosCiclistas.add(c.trim()) })
-
-  // Ordenar: primeiro os que estão no top-20 real (por posição), depois os outros
-  const sorted = Array.from(todosCiclistas).sort((a, b) => {
-    const pa = realPosMap.get(a.toLowerCase()) ?? 999
-    const pb = realPosMap.get(b.toLowerCase()) ?? 999
-    return pa - pb
-  })
-
-  const rowsHtml = sorted.slice(0, 20).map((ciclista, rowIdx) => {
-    const realPos = realPosMap.get(ciclista.toLowerCase()) ?? null
-    const tempo = etapa.tempos_classificacao?.[ciclista] ?? (realPos === 1 ? '—' : realPos ? '+?' : null)
-    const abandon = !realPos
-    const bg = rowIdx % 2 === 0 ? '#fff' : '#fafafa'
+  // Iterar pelas 20 posições apostadas — cada jogador mostra o seu próprio ciclista
+  const rowsHtml = Array.from({ length: 20 }, (_, posIdx) => {
+    const apPos = posIdx + 1 // posição apostada (1-20)
+    const bg = posIdx % 2 === 0 ? '#fff' : '#fafafa'
 
     const cols = apostas.map((aposta, pi) => {
-      const apPos = (aposta.apostas_top20 ?? []).findIndex(
-        c => c?.trim().toLowerCase() === ciclista.toLowerCase()
-      )
-      const apostadoNaPos = apPos >= 0 ? apPos + 1 : null
+      const ciclista = (aposta.apostas_top20 ?? [])[posIdx]?.trim() ?? ''
+      const realPos = ciclista ? (realPosMap.get(ciclista.toLowerCase()) ?? null) : null
+      const abandon = ciclista && !realPos
 
-      // Pontos desta linha específica
       const breakdown = pontosEtapa[pi].breakdown
-      const item = breakdown.find(b => b.ciclista.toLowerCase() === ciclista.toLowerCase())
+      const item = ciclista ? breakdown.find(b => b.ciclista.toLowerCase() === ciclista.toLowerCase()) : null
       const pts = item?.pontos ?? 0
 
       return `
         <td style="border-left:2px solid #f3f4f6;text-align:center;padding:4px 3px;background:${bg};">
-          ${badge(apostadoNaPos, realPos, pts, abandon)}
+          ${ciclista ? badge(apPos, realPos, pts, !!abandon) : '<span style="color:#d1d5db;font-size:10px;">—</span>'}
         </td>
         <td style="text-align:center;padding:4px 3px;font-size:10px;color:#6b7280;background:${bg};">
           ${realPos ?? (abandon ? '<span style="font-size:9px;color:#d1d5db;">aband.</span>' : '—')}
         </td>
         <td style="padding:4px 6px;font-size:10px;color:#374151;background:${bg};white-space:nowrap;overflow:hidden;max-width:100px;">
-          ${ciclista}
+          ${ciclista || '—'}
         </td>
         <td style="text-align:center;padding:4px 3px;background:${bg};">
           ${ptsCell(pts)}
