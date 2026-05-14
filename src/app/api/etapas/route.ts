@@ -275,7 +275,7 @@ export async function POST(req: NextRequest) {
     // Buscar apostas com perfis (incluindo email)
     const { data: apostasComPerfil } = await supabase
       .from('apostas')
-      .select('*, perfil:perfis(username, full_name, email)')
+      .select('*, perfil:perfis(username, full_name)')
       .eq('prova_id', prova_id)
 
     const etapaInserida = {
