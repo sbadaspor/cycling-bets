@@ -132,26 +132,43 @@ function buildEmailHtml(
     if (nome?.trim()) realPosMap.set(nome.trim().toLowerCase(), i + 1)
   })
 
+  // Mapa completo de posições reais (inclui posições adicionais além do top-20)
+  const realPosMapFull = new Map<string, number>(realPosMap)
+  ;(etapa.posicoes_adicionais ?? []).forEach((p: { posicao: number; nome: string }) => {
+    if (p.nome?.trim()) realPosMapFull.set(p.nome.trim().toLowerCase(), p.posicao)
+  })
+
   // Iterar pelas 20 posições apostadas — cada jogador mostra o seu próprio ciclista
   const rowsHtml = Array.from({ length: 20 }, (_, posIdx) => {
-    const apPos = posIdx + 1 // posição apostada (1-20)
-    const bg = posIdx % 2 === 0 ? '#fff' : '#fafafa'
+    const apPos = posIdx + 1
 
     const cols = apostas.map((aposta, pi) => {
       const ciclista = (aposta.apostas_top20 ?? [])[posIdx]?.trim() ?? ''
-      const realPos = ciclista ? (realPosMap.get(ciclista.toLowerCase()) ?? null) : null
-      const abandon = ciclista && !realPos
+      // Procurar em top-20 E posições adicionais
+      const realPos = ciclista ? (realPosMapFull.get(ciclista.toLowerCase()) ?? null) : null
+      // Só é "aband" se o ciclista existe mas não tem posição alguma
+      const abandon = !!(ciclista && !realPos)
 
       const breakdown = pontosEtapa[pi].breakdown
       const item = ciclista ? breakdown.find(b => b.ciclista.toLowerCase() === ciclista.toLowerCase()) : null
       const pts = item?.pontos ?? 0
 
+      // Cor de fundo da linha baseada nos pontos
+      const bg = pts >= 3 ? '#f0fdf4'   // verde claro
+               : pts === 2 ? '#fefce8'  // amarelo claro
+               : pts === 1 ? '#f3f4f6'  // cinza claro
+               : '#fff'                 // branco
+
       return `
         <td style="border-left:2px solid #f3f4f6;text-align:center;padding:4px 3px;background:${bg};">
-          ${ciclista ? badge(apPos, realPos, pts, !!abandon) : '<span style="color:#d1d5db;font-size:10px;">—</span>'}
+          ${ciclista ? badge(apPos, realPos, pts, abandon) : '<span style="color:#d1d5db;font-size:10px;">—</span>'}
         </td>
         <td style="text-align:center;padding:4px 3px;font-size:10px;color:#6b7280;background:${bg};">
-          ${realPos ?? (abandon ? '<span style="font-size:9px;color:#d1d5db;">aband.</span>' : '—')}
+          ${realPos
+            ? realPos
+            : abandon
+              ? '<span style="font-size:9px;color:#d1d5db;">aband.</span>'
+              : '—'}
         </td>
         <td style="padding:4px 6px;font-size:10px;color:#374151;background:${bg};white-space:nowrap;overflow:hidden;max-width:100px;">
           ${ciclista || '—'}
