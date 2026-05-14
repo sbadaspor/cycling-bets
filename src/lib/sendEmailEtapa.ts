@@ -15,6 +15,7 @@ interface EtapaRow {
   numero_etapa: number
   data_etapa: string
   classificacao_geral_top20: string[]
+  posicoes_adicionais?: { posicao: number; nome: string }[]
   tempos_classificacao?: Record<string, string>
   camisola_sprint?: string
   camisola_montanha?: string
