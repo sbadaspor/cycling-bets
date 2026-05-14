@@ -42,10 +42,12 @@ export async function POST(req: NextRequest) {
   if (!etapa) return NextResponse.json({ error: 'Etapa não encontrada.' }, { status: 404 })
 
   // Buscar apostas com perfis
-  const { data: apostas } = await supabase
+  const { data: apostas, error: apostasErr } = await supabase
     .from('apostas')
-    .select('*, perfil:perfis(username, full_name, email)')
+    .select('*, perfil:perfis(username, full_name)')
     .eq('prova_id', prova_id)
+
+  if (apostasErr) return NextResponse.json({ error: apostasErr.message }, { status: 500 })
 
   if (!apostas || apostas.length === 0) {
     return NextResponse.json({ error: 'Sem apostas para esta prova.' }, { status: 404 })
