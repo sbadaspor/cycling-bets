@@ -138,3 +138,24 @@
 ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
 
 .table-row-alt:nth-child(even) { background: var(--surface-2); }
+
+/* ── Responsive grid da homepage ── */
+.homepage-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .homepage-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Padding responsivo do main ── */
+@media (max-width: 640px) {
+  main {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}
