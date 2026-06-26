@@ -2,7 +2,6 @@ import React from 'react'
 import Link from 'next/link'
 import type { Prova, CategoriaProvaTipo } from '@/types'
 import { categorizarProva, compararProvas } from '@/lib/provaStatus'
-import CountdownTimer from '@/components/ui/CountdownTimer'
 
 interface Props {
   provas: Prova[]
@@ -10,11 +9,21 @@ interface Props {
   provasComAposta?: Set<string>
 }
 
-const CATEGORIA_CONFIG: Record<CategoriaProvaTipo, { icon: string; label: string; badgeClass: string }> = {
-  grande_volta:  { icon: '🏔️', label: 'Grande Volta',    badgeClass: 'badge-grande-volta' },
-  prova_semana:  { icon: '📅', label: 'Prova da Semana', badgeClass: 'badge-prova-semana' },
-  monumento:     { icon: '🗿', label: 'Monumento',        badgeClass: 'badge-monumento' },
-  prova_dia:     { icon: '⚡', label: 'Prova de um dia', badgeClass: 'badge-prova-dia' },
+const CATEGORIA_LABEL: Record<CategoriaProvaTipo, string> = {
+  grande_volta:  'Grande Volta',
+  prova_semana:  'Prova da Semana',
+  monumento:     'Monumento',
+  prova_dia:     'Prova de um dia',
+}
+
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function countdown(dias: number): string {
+  if (dias <= 0) return 'Hoje'
+  if (dias === 1) return '1 dia'
+  return `${dias} dias`
 }
 
 export function ProvasList({ provas, userId, provasComAposta = new Set() }: Props) {
@@ -25,104 +34,87 @@ export function ProvasList({ provas, userId, provasComAposta = new Set() }: Prop
 
   if (futuras.length === 0) {
     return (
-      <div className="card" style={{ textAlign: 'center', padding: '2rem 1.25rem' }}>
-        <div style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>📅</div>
-        <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>Sem provas agendadas</p>
-      </div>
+      <section style={{ background: '#fff', border: '1px solid #E9E4D9', borderRadius: 16, padding: 20 }}>
+        <div style={{ textAlign: 'center', padding: '1.5rem 0', color: '#A79F8E', fontSize: 14 }}>
+          Sem provas agendadas
+        </div>
+      </section>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-      {futuras.map((prova, i) => {
-        const dias = prova.diasAteInicio
-        const urgente = dias <= 3
-        const jaApostou = provasComAposta.has(prova.id)
-        const semAposta = !jaApostou && !!userId
-        const cat = prova.categoria ? CATEGORIA_CONFIG[prova.categoria] : null
-        const progressoPct = Math.max(4, Math.round((1 - Math.min(dias, 30) / 30) * 100))
+    <section style={{ background: '#fff', border: '1px solid #E9E4D9', borderRadius: 16, padding: 20 }}>
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
+        letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A79F8E',
+        marginBottom: 14,
+      }}>
+        Próximas provas
+      </div>
 
-        return (
-          <div
-            key={prova.id}
-            className={`animate-fade-up delay-${Math.min(i + 1, 5)}`}
-            style={{
-              background: 'var(--surface)', borderRadius: '1rem', overflow: 'hidden',
-              border: '1px solid var(--border)', position: 'relative',
-              transition: 'border-color 0.18s, box-shadow 0.18s',
-            }}
-          >
-            {/* Barra lateral */}
-            <div style={{
-              position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
-              background: jaApostou ? 'var(--blue)' : urgente ? 'var(--lime)' : 'rgba(255,255,255,0.06)',
-            }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {futuras.map(prova => {
+          const dias = prova.diasAteInicio
+          const jaApostou = provasComAposta.has(prova.id)
+          const tag = prova.categoria ? CATEGORIA_LABEL[prova.categoria] : 'Prova'
 
-            <div style={{ padding: '0.9rem 1rem 0.9rem 1.25rem' }}>
-              {/* Badges topo */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
-                {cat && (
-                  <span className={`badge-categoria ${cat.badgeClass}`}>
-                    {cat.icon} {cat.label}
-                  </span>
-                )}
-                {jaApostou && (
-                  <span style={{
-                    background: 'rgba(68,136,255,0.12)', color: 'var(--blue)',
-                    border: '1px solid rgba(68,136,255,0.25)',
-                    padding: '0.1rem 0.45rem', borderRadius: '999px',
-                    fontSize: '0.65rem', fontWeight: 700,
-                  }}>✓ Apostado</span>
-                )}
-                {semAposta && urgente && (
-                  <span style={{
-                    background: 'rgba(255,80,0,0.12)', color: '#ff6030',
-                    border: '1px solid rgba(255,80,0,0.25)',
-                    padding: '0.1rem 0.45rem', borderRadius: '999px',
-                    fontSize: '0.65rem', fontWeight: 700,
-                  }}>⚠️ Por apostar</span>
-                )}
-              </div>
+          return (
+            <div
+              key={prova.id}
+              style={{ border: '1px solid #ECE8DE', borderRadius: 13, padding: 16, background: '#FCFBF7' }}
+            >
+              {/* Tag categoria */}
+              <span style={{
+                display: 'inline-block',
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                letterSpacing: '0.1em', textTransform: 'uppercase',
+                color: '#857E6F', background: '#F1ECE1',
+                padding: '4px 8px', borderRadius: 6,
+              }}>
+                {tag}
+              </span>
 
-              <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)', lineHeight: 1.25, marginBottom: '0.25rem' }}>
+              {/* Nome */}
+              <div style={{ font: "700 16px 'Archivo', sans-serif", color: '#16140F', margin: '11px 0 3px' }}>
                 {prova.nome}
-              </p>
-
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-sub)' }}>
-                {new Date(prova.data_inicio).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' })}
-                {' → '}
-                {new Date(prova.data_fim).toLocaleDateString('pt-PT', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </p>
-
-              <CountdownTimer dataInicio={prova.data_inicio} diasAteInicio={dias} />
-
-              <div style={{ height: 2, background: 'var(--surface-2)', borderRadius: '999px', overflow: 'hidden', margin: '0.75rem 0' }}>
-                <div style={{
-                  height: '100%', width: `${progressoPct}%`,
-                  background: urgente ? 'linear-gradient(90deg, rgba(200,244,0,0.9), rgba(200,244,0,0.4))' : 'rgba(255,255,255,0.1)',
-                  borderRadius: '999px',
-                }} />
               </div>
 
-              {userId && (
-                <Link
-                  href={`/apostas/${prova.id}`}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-                    background: jaApostou ? 'var(--surface-2)' : 'rgba(200,244,0,0.12)',
-                    color: jaApostou ? 'var(--text-dim)' : 'var(--lime)',
-                    border: `1px solid ${jaApostou ? 'var(--border-hi)' : 'rgba(200,244,0,0.25)'}`,
-                    padding: '0.4rem 0.875rem', borderRadius: '0.5rem',
-                    fontSize: '0.78rem', fontWeight: 700, textDecoration: 'none',
-                  }}
-                >
-                  {jaApostou ? '✏️ Editar aposta' : '🎯 Apostar agora'}
-                </Link>
-              )}
+              {/* Datas */}
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#A79F8E', letterSpacing: '0.02em' }}>
+                {formatDate(prova.data_inicio)} → {formatDate(prova.data_fim)}
+              </div>
+
+              {/* Countdown + botão */}
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 15 }}>
+                <div>
+                  <div style={{ font: "700 17px 'JetBrains Mono', monospace", color: '#16140F', letterSpacing: '-0.01em' }}>
+                    {countdown(dias)}
+                  </div>
+                  <div style={{ font: "500 11px 'Archivo', sans-serif", color: '#A79F8E', marginTop: 2 }}>
+                    para fechar apostas
+                  </div>
+                </div>
+
+                {userId && (
+                  <Link
+                    href={`/apostas/${prova.id}`}
+                    style={{
+                      padding: '10px 16px', borderRadius: 10,
+                      background: jaApostou ? '#F4F0E6' : '#16140F',
+                      color: jaApostou ? '#857E6F' : '#fff',
+                      font: "700 13px 'Archivo', sans-serif",
+                      textDecoration: 'none', whiteSpace: 'nowrap',
+                      border: jaApostou ? '1px solid #E9E4D9' : 'none',
+                    }}
+                  >
+                    {jaApostou ? '✏️ Editar' : 'Apostar →'}
+                  </Link>
+                )}
+              </div>
             </div>
-          </div>
-        )
-      })}
-    </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
