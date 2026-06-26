@@ -13,34 +13,35 @@ const NotificationButton = dynamic(
   { ssr: false }
 )
 
-/* ─────────────────────────────────────────────
-   Icons (inline SVG — zero dependencies)
-───────────────────────────────────────────── */
+const LogoSVG = () => (
+  <svg width="36" height="22" viewBox="0 0 36 22" fill="none">
+    <circle cx="7.5" cy="15" r="6" stroke="#16140F" strokeWidth="2" />
+    <circle cx="28.5" cy="15" r="6" stroke="#E0451F" strokeWidth="2" />
+    <path d="M7.5 15 L16 7 L25 15" stroke="#16140F" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+    <path d="M16 7 L28.5 15" stroke="#E0451F" strokeWidth="2" strokeLinecap="round" />
+    <path d="M14.5 7 L18.5 7" stroke="#16140F" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+)
+
+/* Icons para bottom nav mobile */
 const IconHome = () => (
   <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/>
+    <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" /><path d="M9 21V12h6v9" />
   </svg>
 )
 const IconBet = () => (
   <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-    <rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M8 15h3"/>
+    <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M8 15h3" />
   </svg>
 )
 const IconAdmin = () => (
   <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-    <path d="M18 14l2 2 4-4" strokeWidth="2"/>
+    <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
   </svg>
 )
 const IconUser = () => (
   <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-    <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-  </svg>
-)
-const IconBike = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/>
-    <path d="M15 6a1 1 0 100-2 1 1 0 000 2zm-3 11.5L8.5 9H5M15 6l-3 5.5m0 0H8.5m3.5 0l3.5 5.5"/>
+    <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
   </svg>
 )
 
@@ -75,99 +76,113 @@ export function Navbar() {
 
   const initial = perfil?.username?.[0]?.toUpperCase() ?? '?'
 
-  /* ── BOTTOM NAV (mobile) ── */
-  const bottomLinks = [
-    { href: '/', label: 'Início', icon: <IconHome /> },
-    ...(user ? [{ href: '/apostas', label: 'Apostas', icon: <IconBet /> }] : []),
-    { href: '/head-to-head', label: 'H2H', icon: '⚔️' },
-    { href: '/regras', label: 'Regras', icon: '📖' },
+  const navLinks = [
+    { href: '/',            label: 'Início',  icon: <IconHome /> },
+    ...(user ? [{ href: '/apostas',       label: 'Apostas', icon: <IconBet /> }] : []),
+    { href: '/head-to-head', label: 'H2H',    icon: '⚔️' },
+    { href: '/regras',      label: 'Regras',  icon: '📖' },
     ...(perfil?.is_admin ? [{ href: '/admin', label: 'Admin', icon: <IconAdmin /> }] : []),
   ]
 
   return (
     <>
-      {/* ── TOP BAR ─────────────────────────────── */}
+      {/* ── TOP BAR ── */}
       <header style={{
-        background: 'rgba(10,10,15,0.85)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        borderBottom: '1px solid var(--border)',
+        background: '#FFFFFF',
+        borderBottom: '1px solid #E7E2D7',
         position: 'sticky', top: 0, zIndex: 50,
       }}>
-        <div className="max-w-2xl lg:max-w-7xl mx-auto px-4 sm:px-5 lg:px-8 h-14 flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <span style={{ color: 'var(--lime)' }} className="transition-transform group-hover:scale-110">
-              <IconBike />
-            </span>
-            <span style={{
-              fontFamily: 'Barlow Condensed, sans-serif',
-              fontSize: '1.35rem', fontWeight: 800,
-              textTransform: 'uppercase', letterSpacing: '0.06em',
-              color: 'var(--text)',
-            }}>
-              Velo<span style={{ color: 'var(--lime)' }}>Apostas</span>
-            </span>
-          </Link>
+        <div style={{
+          maxWidth: 1216, margin: '0 auto', padding: '0 32px',
+          height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          {/* Logo + nav links */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 38 }}>
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 11, textDecoration: 'none' }}>
+              <LogoSVG />
+              <span style={{ font: "800 19px 'Archivo', sans-serif", letterSpacing: '-0.01em', color: '#16140F' }}>
+                VELO<span style={{ color: '#E0451F' }}>APOSTAS</span>
+              </span>
+            </Link>
 
-          {/* Desktop nav links */}
-          <nav className="hidden lg:flex items-center gap-1">
-            {bottomLinks.map(link => {
-              const active = pathname === link.href
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.4rem',
-                    padding: '0.4rem 0.875rem', borderRadius: '0.75rem',
-                    fontSize: '0.875rem', fontWeight: 500,
-                    color: active ? 'var(--lime)' : 'var(--text-dim)',
-                    background: active ? 'rgba(200,244,0,0.1)' : 'transparent',
-                    transition: 'all 0.15s',
-                  }}
-                  className="hover:text-white"
-                >
-                  {link.icon}
-                  {link.label}
-                </Link>
-              )
-            })}
-          </nav>
+            {/* Desktop nav */}
+            <nav className="hidden lg:flex" style={{ gap: 4 }}>
+              {navLinks.map(link => {
+                const active = pathname === link.href
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    style={{
+                      padding: '9px 15px', borderRadius: 9,
+                      background: active ? '#16140F' : 'transparent',
+                      color: active ? '#fff' : '#6B665B',
+                      font: `${active ? 600 : 500} 14px 'Archivo', sans-serif`,
+                      textDecoration: 'none',
+                      transition: 'background 0.15s, color 0.15s',
+                    }}
+                    onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#EFEADF'; e.currentTarget.style.color = '#16140F' } }}
+                    onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6B665B' } }}
+                  >
+                    {link.label}
+                  </Link>
+                )
+              })}
+            </nav>
+          </div>
 
           {/* Auth section */}
-          <div className="flex items-center gap-2">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             {user ? (
-              <div className="flex items-center gap-2.5">
-                {/* Avatar — clicável para perfil */}
-                <Link href="/conta" className="hidden sm:flex items-center gap-2" style={{ textDecoration: 'none' }}>
+              <>
+                <Link href="/conta" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }} className="hidden sm:flex">
                   <div style={{
-                    width: 32, height: 32, borderRadius: '50%',
-                    background: perfil?.avatar_url ? 'transparent' : 'rgba(200,244,0,0.15)',
-                    border: '1.5px solid rgba(200,244,0,0.35)',
+                    width: 30, height: 30, borderRadius: '50%',
+                    background: perfil?.avatar_url ? 'transparent' : '#16140F',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.75rem', fontWeight: 700, color: 'var(--lime)',
-                    fontFamily: 'Barlow Condensed, sans-serif',
-                    overflow: 'hidden',
+                    font: "700 11px 'Archivo', sans-serif", color: '#fff',
+                    overflow: 'hidden', flexShrink: 0,
                   }}>
                     {perfil?.avatar_url
                       ? <img src={perfil.avatar_url} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : initial
                     }
                   </div>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{perfil?.username}</span>
+                  <span style={{ font: "600 13px 'Archivo', sans-serif", color: '#16140F' }}>
+                    {perfil?.username}
+                  </span>
                 </Link>
                 <NotificationButton />
-                <button onClick={handleLogout} className="btn-secondary" style={{ padding: '0.35rem 0.875rem', fontSize: '0.8rem' }}>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    padding: '8px 15px', borderRadius: 9,
+                    border: '1px solid #E3DDD0', background: 'transparent',
+                    font: "600 13px 'Archivo', sans-serif", color: '#16140F',
+                    cursor: 'pointer', transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#F1ECE1')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
                   Sair
                 </button>
-              </div>
+              </>
             ) : (
-              <div className="flex items-center gap-2">
-                <Link href="/auth/login" className="btn-secondary" style={{ padding: '0.35rem 0.875rem', fontSize: '0.8rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Link href="/auth/login" style={{
+                  padding: '8px 15px', borderRadius: 9,
+                  border: '1px solid #E3DDD0',
+                  font: "600 13px 'Archivo', sans-serif", color: '#16140F',
+                  textDecoration: 'none',
+                }}>
                   Entrar
                 </Link>
-                <Link href="/auth/register" className="btn-primary" style={{ padding: '0.35rem 0.875rem', fontSize: '0.85rem' }}>
+                <Link href="/auth/register" style={{
+                  padding: '8px 15px', borderRadius: 9,
+                  background: '#16140F', color: '#fff',
+                  font: "600 13px 'Archivo', sans-serif",
+                  textDecoration: 'none',
+                }}>
                   Registar
                 </Link>
               </div>
@@ -176,32 +191,30 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* ── BOTTOM NAV (mobile only) ──────────────── */}
+      {/* ── BOTTOM NAV (mobile only) ── */}
       <nav className="lg:hidden" style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: 'rgba(10,10,15,0.95)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderTop: '1px solid var(--border)',
+        background: 'rgba(255,255,255,0.97)',
+        backdropFilter: 'blur(12px)',
+        borderTop: '1px solid #E7E2D7',
         zIndex: 50,
         paddingBottom: 'env(safe-area-inset-bottom)',
         display: 'flex',
       }}>
-        {/* If no user: show login + register */}
         {!user ? (
           <>
-            <Link href="/auth/login" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.75rem 0.5rem', gap: '0.2rem', color: 'var(--text-dim)', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <Link href="/auth/login" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.75rem 0.5rem', gap: '0.2rem', color: '#857E6F', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', textDecoration: 'none' }}>
               <IconUser />
               Entrar
             </Link>
-            <div style={{ width: 1, background: 'var(--border)', margin: '0.5rem 0' }} />
-            <Link href="/" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.75rem 0.5rem', gap: '0.2rem', color: pathname === '/' ? 'var(--lime)' : 'var(--text-dim)', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <div style={{ width: 1, background: '#E7E2D7', margin: '0.5rem 0' }} />
+            <Link href="/" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0.75rem 0.5rem', gap: '0.2rem', color: pathname === '/' ? '#16140F' : '#857E6F', fontSize: '0.65rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', textDecoration: 'none' }}>
               <IconHome />
               Início
             </Link>
           </>
         ) : (
-          bottomLinks.map((link, i) => {
+          navLinks.map(link => {
             const active = pathname === link.href
             return (
               <Link
@@ -211,20 +224,21 @@ export function Navbar() {
                   flex: 1,
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   padding: '0.7rem 0.5rem', gap: '0.2rem',
-                  color: active ? 'var(--lime)' : 'var(--text-dim)',
+                  color: active ? '#16140F' : '#A79F8E',
                   fontSize: '0.62rem', fontWeight: 600,
                   textTransform: 'uppercase', letterSpacing: '0.04em',
                   transition: 'color 0.15s',
+                  textDecoration: 'none',
                   position: 'relative',
                 }}
               >
                 {active && (
                   <span style={{
                     position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-                    width: 28, height: 2, borderRadius: 1, background: 'var(--lime)',
+                    width: 28, height: 2, borderRadius: 1, background: '#E0451F',
                   }} />
                 )}
-                <span style={{ transition: 'transform 0.15s', transform: active ? 'scale(1.1)' : 'scale(1)' }}>
+                <span style={{ transform: active ? 'scale(1.1)' : 'scale(1)', transition: 'transform 0.15s' }}>
                   {link.icon}
                 </span>
                 {link.label}
