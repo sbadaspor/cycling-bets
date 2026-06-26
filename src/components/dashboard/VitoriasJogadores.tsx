@@ -15,50 +15,48 @@ interface Props {
   grandesVoltas?: GrandeVoltaDetalhe[]
 }
 
-const medals = ['🥇', '🥈', '🥉']
+const PLAYER_COLORS = ['#E0451F', '#2563EB', '#16A34A', '#E8488B', '#EAB308']
+const MUTED = '#B3AC9B'
 
 export default function VitoriasJogadores({ vitorias, grandesVoltas = [] }: Props) {
   if (vitorias.length === 0) return null
 
   return (
-    <div className="card-flush animate-fade-up">
-      <div style={{ padding: '1rem 1.25rem 0.85rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <p style={{
-          fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.15rem',
-        }}>
-          🏔️ Grandes Voltas
-        </p>
-        <h2 style={{
-          fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.2rem',
-          fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-        }}>
-          Giro · Tour · Vuelta
+    <section style={{ background: '#fff', border: '1px solid #E9E4D9', borderRadius: 16, padding: 22 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18 }}>
+        <h2 style={{ font: "700 18px 'Archivo', sans-serif", color: '#16140F', margin: 0 }}>
+          Grandes Voltas
         </h2>
+        <span style={{ font: "500 12px 'Archivo', sans-serif", color: '#A79F8E' }}>
+          — palmarés histórico
+        </span>
       </div>
 
-      {/* Cabeçalho */}
+      {/* Cabeçalho da tabela */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '1fr repeat(3, 64px)',
-        padding: '0.5rem 1.25rem',
-        background: 'rgba(255,255,255,0.03)',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        display: 'grid', gridTemplateColumns: '1fr 64px 64px 64px 76px',
+        alignItems: 'center', padding: '0 6px 12px',
+        borderBottom: '1px solid #ECE8DE',
       }}>
-        <span style={{ fontSize: '0.65rem', color: '#6a6a86', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#A79F8E' }}>
           Jogador
-        </span>
+        </div>
         {[
-          { label: 'Giro', flag: '🇮🇹' },
-          { label: 'Tour', flag: '🇫🇷' },
-          { label: 'Vuelta', flag: '🇪🇸' },
+          { label: 'GIRO',   dot: '#E8488B' },
+          { label: 'TOUR',   dot: '#EAB308' },
+          { label: 'VUELTA', dot: '#D6322B' },
         ].map(col => (
-          <div key={col.label} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.85rem' }}>{col.flag}</div>
-            <div style={{ fontSize: '0.6rem', color: '#6a6a86', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <div key={col.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: col.dot, display: 'inline-block' }} />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', color: '#857E6F' }}>
               {col.label}
-            </div>
+            </span>
           </div>
         ))}
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', color: '#857E6F', textAlign: 'center' }}>
+          TOTAL
+        </div>
       </div>
 
       {/* Linhas */}
@@ -67,69 +65,56 @@ export default function VitoriasJogadores({ vitorias, grandesVoltas = [] }: Prop
         const giro   = detalhe?.giro   ?? 0
         const tour   = detalhe?.tour   ?? 0
         const vuelta = detalhe?.vuelta ?? 0
+        const total  = giro + tour + vuelta
+        const cor    = PLAYER_COLORS[idx] ?? '#A79F8E'
         const inicial = v.perfil.username?.[0]?.toUpperCase() ?? '?'
+        const nome = v.perfil.full_name || v.perfil.username
 
         return (
           <div
             key={v.perfil.id}
             style={{
-              display: 'grid', gridTemplateColumns: '1fr repeat(3, 64px)',
-              padding: '0.75rem 1.25rem',
-              borderBottom: idx < vitorias.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none',
-              alignItems: 'center',
+              display: 'grid', gridTemplateColumns: '1fr 64px 64px 64px 76px',
+              alignItems: 'center', padding: '14px 6px',
+              borderBottom: idx < vitorias.length - 1 ? '1px solid #F1EDE3' : 'none',
             }}
           >
             <Link
               href={`/perfil/${v.perfil.id}`}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '0.6rem',
-                textDecoration: 'none', overflow: 'hidden',
-                transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+              style={{ display: 'flex', alignItems: 'center', gap: 11, textDecoration: 'none' }}
             >
-              {/* Avatar */}
               <div style={{
-                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                overflow: 'hidden',
-                background: v.perfil.avatar_url ? 'transparent' : 'rgba(200,244,0,0.12)',
-                border: '1.5px solid rgba(200,244,0,0.2)',
+                width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                background: v.perfil.avatar_url ? 'transparent' : cor,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'Barlow Condensed, sans-serif',
-                fontSize: '0.75rem', fontWeight: 900,
-                color: 'var(--lime)',
+                font: "700 11px 'Archivo', sans-serif", color: '#fff', overflow: 'hidden',
               }}>
                 {v.perfil.avatar_url
-                  ? <img src={v.perfil.avatar_url} alt={v.perfil.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={v.perfil.avatar_url} alt={nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : inicial
                 }
               </div>
-
-              {/* Medalha + nome completo (fallback para username) */}
-              <span style={{
-                fontSize: '0.88rem', fontWeight: 600,
-                color: idx === 0 ? 'var(--lime)' : '#e0e0f0',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {medals[idx] ?? ''} {v.perfil.full_name || v.perfil.username}
-              </span>
+              <span style={{ font: "700 15px 'Archivo', sans-serif", color: '#16140F' }}>{nome}</span>
             </Link>
 
             {[giro, tour, vuelta].map((n, i) => (
-              <div key={i} style={{ textAlign: 'center' }}>
-                <span style={{
-                  fontFamily: 'Barlow Condensed, sans-serif',
-                  fontSize: '1.25rem', fontWeight: 900,
-                  color: n > 0 ? 'var(--lime)' : '#4a4a66',
-                }}>
-                  {n > 0 ? n : '—'}
-                </span>
+              <div key={i} style={{ textAlign: 'center', font: "700 16px 'Archivo', sans-serif", color: n > 0 ? '#16140F' : MUTED }}>
+                {n > 0 ? n : '—'}
               </div>
             ))}
+
+            <div style={{ textAlign: 'center' }}>
+              <span style={{
+                display: 'inline-block', minWidth: 30, padding: '4px 9px',
+                borderRadius: 8, background: '#F4F0E6', border: '1px solid #E9E4D9',
+                font: "700 14px 'Archivo', sans-serif", color: '#16140F',
+              }}>
+                {total}
+              </span>
+            </div>
           </div>
         )
       })}
-    </div>
+    </section>
   )
 }
