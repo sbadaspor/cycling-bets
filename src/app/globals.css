@@ -159,3 +159,36 @@
     padding-right: 12px !important;
   }
 }
+
+/* ── Layout Histórico ── */
+.historico-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .historico-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Confronto cards: horizontal em mobile/standalone, vertical em sidebar ── */
+.confronto-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.historico-grid .confronto-cards {
+  grid-template-columns: 1fr;
+}
+
+/* Em sidebar, remover border-right e adicionar border-bottom */
+.historico-grid .confronto-cards > div {
+  border-right: none !important;
+  border-bottom: 1px solid #F1EDE3;
+}
+.historico-grid .confronto-cards > div:last-child {
+  border-bottom: none !important;
+}
