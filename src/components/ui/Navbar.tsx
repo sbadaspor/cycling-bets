@@ -61,7 +61,7 @@ export function Navbar() {
   const navLinks = [
     { href: '/',             label: 'Início'  },
     ...(user ? [{ href: '/apostas', label: 'Apostas' }] : []),
-    { href: '/head-to-head', label: 'H2H'     },
+    { href: '/head-to-head', label: 'Histórico' },
     { href: '/regras',       label: 'Regras'  },
     ...(perfil?.is_admin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]
