@@ -4,8 +4,10 @@ import Link from 'next/link'
 import type { Aposta, EtapaResultado, Prova } from '@/types'
 import { calcularPontos } from '@/lib/pontuacao'
 import type { CategoriaProvaTipo } from '@/types'
-import AnimatedPoints from '@/components/ui/AnimatedPoints'
 import { nomeExibir, inicialAvatar } from '@/lib/perfil'
+
+// Cor fixa por posição no ranking
+const PLAYER_COLORS = ['#E0451F', '#2563EB', '#16A34A', '#E8488B', '#EAB308']
 
 interface Props {
   prova: Prova
@@ -15,154 +17,145 @@ interface Props {
 }
 
 export default function ClassificacaoProvaTable({ prova, apostas, ultimaEtapa, titulo }: Props) {
-  const tituloFinal = titulo ?? `Classificação — ${prova.nome}`
-  const medals = ['🥇', '🥈', '🥉']
-
-  // Calcular pontos em tempo real com base na última etapa
-  // Isto garante que a classificação está sempre correcta mesmo se a DB estiver desactualizada
   const apostasComPontos = apostas.map(aposta => {
     if (!ultimaEtapa) return { ...aposta, pontosCalc: aposta.pontos_total }
-
     const calc = calcularPontos(
       aposta.apostas_top20,
       ultimaEtapa.classificacao_geral_top20,
-      {
-        sprint: aposta.camisola_sprint ?? '',
-        montanha: aposta.camisola_montanha ?? '',
-        juventude: aposta.camisola_juventude ?? '',
-      },
-      {
-        sprint: ultimaEtapa.camisola_sprint ?? '',
-        montanha: ultimaEtapa.camisola_montanha ?? '',
-        juventude: ultimaEtapa.camisola_juventude ?? '',
-      },
+      { sprint: aposta.camisola_sprint ?? '', montanha: aposta.camisola_montanha ?? '', juventude: aposta.camisola_juventude ?? '' },
+      { sprint: ultimaEtapa.camisola_sprint ?? '', montanha: ultimaEtapa.camisola_montanha ?? '', juventude: ultimaEtapa.camisola_juventude ?? '' },
       prova.categoria as CategoriaProvaTipo
     )
-    return {
-      ...aposta,
-      pontosCalc: calc.pontos_total,
-      pontosTop10Calc: calc.pontos_top10,
-      pontosTop20Calc: calc.pontos_top20,
-      pontosCamisolasCalc: calc.pontos_camisolas,
-    }
+    return { ...aposta, pontosCalc: calc.pontos_total, pontosTop10Calc: calc.pontos_top10, pontosTop20Calc: calc.pontos_top20, pontosCamisolasCalc: calc.pontos_camisolas }
   })
 
   const ordenadas = [...apostasComPontos].sort((a, b) => b.pontosCalc - a.pontosCalc)
+  const tituloFinal = titulo ?? prova.nome
+  const isAoVivo = prova.status !== 'finalizada' && !!ultimaEtapa
+  const isFinalizada = prova.status === 'finalizada'
 
   return (
-    <div className="card-flush animate-fade-up">
+    <section style={{ background: '#fff', border: '1px solid #E9E4D9', borderRadius: 16, padding: 22 }}>
       {/* Header */}
-      <div style={{
-        padding: '1.1rem 1.25rem 0.9rem',
-        borderBottom: '1px solid var(--border)',
-        background: 'linear-gradient(135deg, rgba(200,244,0,0.06) 0%, transparent 60%)',
-      }}>
-        <div className="flex items-start justify-between gap-2 flex-wrap">
-          <div>
-            <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>
-              🏆 Ao vivo
-            </p>
-            <Link href={`/provas/${prova.id}`} style={{ textDecoration: 'none' }}>
-              <h2
-                className="section-title"
-                style={{ fontSize: '1.25rem', lineHeight: 1.1, color: 'var(--text)', transition: 'color 0.15s', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-                onMouseEnter={e => (e.currentTarget.style.color = 'var(--lime)')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'var(--text)')}
-              >
-                {tituloFinal} →
-              </h2>
-            </Link>
-          </div>
-          {ultimaEtapa && (
-            <span style={{ fontSize: '0.68rem', color: 'var(--text-dim)', background: 'var(--surface-2)', padding: '0.25rem 0.6rem', borderRadius: '999px', border: '1px solid var(--border-hi)', whiteSpace: 'nowrap', marginTop: '0.25rem' }}>
-              Etapa {ultimaEtapa.numero_etapa}{ultimaEtapa.is_final ? ' · Final' : ''}
-            </span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          {isAoVivo && (
+            <>
+              <span style={{
+                width: 7, height: 7, borderRadius: '50%', background: '#E0451F', flexShrink: 0,
+                animation: 'vpPulse 1.4s ease-in-out infinite', display: 'inline-block',
+              }} />
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#E0451F' }}>
+                Ao vivo
+              </span>
+            </>
           )}
+          <Link href={`/provas/${prova.id}`} style={{ textDecoration: 'none' }}>
+            <h2 style={{ font: "700 18px 'Archivo', sans-serif", color: '#16140F', margin: isAoVivo ? '0 0 0 6px' : 0 }}>
+              Classificação · {tituloFinal}
+            </h2>
+          </Link>
         </div>
+        {ultimaEtapa && (
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
+            letterSpacing: '0.06em', color: '#857E6F',
+            background: '#F4F0E6', border: '1px solid #E9E4D9',
+            padding: '5px 10px', borderRadius: 7,
+          }}>
+            Etapa {ultimaEtapa.numero_etapa}{ultimaEtapa.is_final ? ' · Final' : ''}
+          </span>
+        )}
+        {isFinalizada && !ultimaEtapa && (
+          <span style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
+            letterSpacing: '0.06em', color: '#857E6F',
+            background: '#F4F0E6', border: '1px solid #E9E4D9',
+            padding: '5px 10px', borderRadius: 7,
+          }}>
+            Finalizada
+          </span>
+        )}
       </div>
 
-      {/* Body */}
+      {/* Rows */}
       {ordenadas.length === 0 ? (
-        <div style={{ padding: '2.5rem 1.25rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🚴</div>
-          <p style={{ fontSize: '0.9rem' }}>Ainda não há apostas nesta prova.</p>
+        <div style={{ padding: '2rem 0', textAlign: 'center', color: '#A79F8E', fontSize: 14 }}>
+          Ainda não há apostas nesta prova.
         </div>
       ) : !ultimaEtapa ? (
-        <div style={{ padding: '2.5rem 1.25rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-          <div style={{ fontSize: '1.75rem', marginBottom: '0.75rem' }}>⏳</div>
-          <p style={{ fontSize: '0.875rem' }}>A aguardar primeira etapa. Os pontos serão calculados em breve.</p>
+        <div style={{ padding: '2rem 0', textAlign: 'center', color: '#A79F8E', fontSize: 14 }}>
+          A aguardar primeira etapa.
         </div>
       ) : (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {ordenadas.map((a, idx) => {
-            const rank = idx + 1
-            const isTop3 = rank <= 3
+            const cor = PLAYER_COLORS[idx] ?? '#A79F8E'
+            const inicial = inicialAvatar(a.perfil)
+            const nome = nomeExibir(a.perfil)
             const pontos = a.pontosCalc
+            const isLider = idx === 0
 
             return (
               <Link
                 key={a.id}
                 href={`/provas/${prova.id}/apostas/${a.user_id}`}
-                className="table-row-alt"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: '0.875rem',
-                  padding: '0.85rem 1.25rem',
-                  borderBottom: '1px solid var(--border)',
-                  transition: 'background 0.12s',
-                  textDecoration: 'none',
+                  display: 'flex', alignItems: 'center', gap: 15,
+                  padding: '15px 16px', borderRadius: 12,
+                  background: '#fff', border: '1px solid #ECE8DE',
+                  textDecoration: 'none', transition: 'background 0.15s, border-color 0.15s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}
+                onMouseEnter={e => { e.currentTarget.style.background = '#FBFAF5'; e.currentTarget.style.borderColor = '#E0DACB' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#ECE8DE' }}
               >
-                {/* Medalha / Rank */}
-                <div style={{
-                  width: 22, flexShrink: 0, textAlign: 'center',
-                  fontSize: isTop3 ? '1rem' : '0.72rem',
-                  fontWeight: 700,
-                  color: isTop3 ? 'var(--lime)' : 'var(--text-sub)',
-                  fontFamily: 'Barlow Condensed, sans-serif',
-                }}>
-                  {medals[idx] ?? rank}
+                {/* Barra lateral colorida */}
+                <div style={{ width: 4, height: 38, borderRadius: 4, background: cor, flexShrink: 0 }} />
+
+                {/* Rank */}
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, color: '#B3AC9B', width: 16, textAlign: 'center', flexShrink: 0 }}>
+                  {idx + 1}
                 </div>
 
                 {/* Avatar */}
                 <div style={{
-                  width: 38, height: 38, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
-                  background: a.perfil?.avatar_url ? 'transparent' : 'rgba(200,244,0,0.12)',
-                  border: `1.5px solid ${isTop3 ? 'rgba(200,244,0,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                  width: 40, height: 40, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+                  background: a.perfil?.avatar_url ? 'transparent' : cor,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.8rem', fontWeight: 900, color: 'var(--lime)',
-                  fontFamily: 'Barlow Condensed, sans-serif',
+                  font: "700 13px 'Archivo', sans-serif", color: '#fff',
                 }}>
                   {a.perfil?.avatar_url
-                    ? <img src={a.perfil.avatar_url} alt={nomeExibir(a.perfil)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : inicialAvatar(a.perfil)
+                    ? <img src={a.perfil.avatar_url} alt={nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : inicial
                   }
                 </div>
 
-                {/* Nome */}
-                <span style={{
-                  flex: 1, fontSize: '0.95rem', fontWeight: isTop3 ? 600 : 500,
-                  color: isTop3 ? 'var(--lime)' : 'var(--text)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {nomeExibir(a.perfil)}
-                </span>
-
-                {/* Points breakdown */}
-                <div className="hidden sm:flex items-center gap-3" style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>
-                  <span>T10: {'pontosTop10Calc' in a ? (a as any).pontosTop10Calc : a.pontos_top10}</span>
-                  <span>T20: {'pontosTop20Calc' in a ? (a as any).pontosTop20Calc : a.pontos_top20}</span>
-                  <span>🎽 {'pontosCamisolasCalc' in a ? (a as any).pontosCamisolasCalc : a.pontos_camisolas}</span>
+                {/* Nome + sub */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "700 16px 'Archivo', sans-serif", color: '#16140F', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {nome}
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 3, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#A79F8E', letterSpacing: '0.03em' }}>
+                    <span>T10 {('pontosTop10Calc' in a ? (a as any).pontosTop10Calc : a.pontos_top10)}</span>
+                    <span>T20 {('pontosTop20Calc' in a ? (a as any).pontosTop20Calc : a.pontos_top20)}</span>
+                    {isLider && isAoVivo && <span style={{ color: '#E0451F', textTransform: 'uppercase', letterSpacing: '0.1em' }}>● Líder</span>}
+                  </div>
                 </div>
 
-                {/* Total */}
-                <AnimatedPoints value={pontos} isTop3={isTop3} />
+                {/* Pontos */}
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <span style={{ font: "800 27px 'Archivo', sans-serif", color: '#16140F', letterSpacing: '-0.02em' }}>
+                    {pontos}
+                  </span>
+                  <span style={{ font: "600 12px 'Archivo', sans-serif", color: '#A79F8E', marginLeft: 3 }}>
+                    pts
+                  </span>
+                </div>
               </Link>
             )
           })}
         </div>
       )}
-    </div>
+    </section>
   )
 }
