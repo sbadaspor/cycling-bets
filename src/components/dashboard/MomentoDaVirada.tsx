@@ -12,119 +12,205 @@ interface Props {
   categoria?: CategoriaProvaTipo
 }
 
+const PLAYER_COLORS = ['#E0451F', '#2563EB', '#16A34A', '#E8488B', '#EAB308']
+
 export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
   if (etapas.length < 2 || apostas.length < 2) return null
 
-  const config = getConfigCategoria(categoria)
+  getConfigCategoria(categoria)
 
-  type Snapshot = { userId: string; nome: string; pontosAcum: number; pontosEtapa: number; lider: boolean }
+  // Calcular pontos acumulados por etapa
+  type Snapshot = { userId: string; nome: string; pontosAcum: number; lider: boolean }
   const timeline: Array<{ etapa: EtapaResultado; snapshots: Snapshot[] }> = []
-
   const acumulados: Record<string, number> = {}
   apostas.forEach(a => { acumulados[a.user_id] = 0 })
 
   for (const etapa of etapas) {
-    const pontosNestaEtapa: Record<string, number> = {}
     for (const aposta of apostas) {
       const r = calcularPontos(
         aposta.apostas_top20 ?? [],
         etapa.classificacao_geral_top20 ?? [],
-        {
-          sprint: aposta.camisola_sprint ?? '',
-          montanha: aposta.camisola_montanha ?? '',
-          juventude: aposta.camisola_juventude ?? '',
-        },
-        {
-          sprint: etapa.camisola_sprint ?? '',
-          montanha: etapa.camisola_montanha ?? '',
-          juventude: etapa.camisola_juventude ?? '',
-        },
+        { sprint: aposta.camisola_sprint ?? '', montanha: aposta.camisola_montanha ?? '', juventude: aposta.camisola_juventude ?? '' },
+        { sprint: etapa.camisola_sprint ?? '', montanha: etapa.camisola_montanha ?? '', juventude: etapa.camisola_juventude ?? '' },
         categoria
       )
-      pontosNestaEtapa[aposta.user_id] = r.pontos_total
       acumulados[aposta.user_id] = (acumulados[aposta.user_id] ?? 0) + r.pontos_total
     }
-
     const snapshots = apostas.map(a => ({
       userId: a.user_id,
       nome: nomeExibir(a.perfil, '?'),
       pontosAcum: acumulados[a.user_id] ?? 0,
-      pontosEtapa: pontosNestaEtapa[a.user_id] ?? 0,
       lider: false,
     })).sort((a, b) => b.pontosAcum - a.pontosAcum)
-
     snapshots.forEach((s, i) => { s.lider = i === 0 })
     timeline.push({ etapa, snapshots })
   }
 
+  // Detectar mudança de liderança
   let etapaDaVirada: typeof timeline[0] | null = null
   for (let i = 1; i < timeline.length; i++) {
-    const liderAntes = timeline[i - 1].snapshots[0]?.userId
-    const liderDepois = timeline[i].snapshots[0]?.userId
-    if (liderAntes !== liderDepois) {
+    if (timeline[i - 1].snapshots[0]?.userId !== timeline[i].snapshots[0]?.userId) {
       etapaDaVirada = timeline[i]
       break
     }
   }
 
-  const ultima = timeline[timeline.length - 1]
+  // Ordenação final dos jogadores (pela ordem da última etapa)
+  const ordenacaoFinal = timeline[timeline.length - 1].snapshots
+  const jogadores = apostas.map((a, idx) => {
+    const rank = ordenacaoFinal.findIndex(s => s.userId === a.user_id)
+    return {
+      userId: a.user_id,
+      nome: nomeExibir(a.perfil, '?'),
+      cor: PLAYER_COLORS[rank >= 0 ? rank : idx] ?? '#A79F8E',
+    }
+  })
+
+  // Construir dados do gráfico SVG
+  const W = 720, H = 272
+  const padL = 48, padR = 20, padT = 20, padB = 36
+  const chartW = W - padL - padR
+  const chartH = H - padT - padB
+
+  const maxPts = Math.max(...timeline.map(t => Math.max(...t.snapshots.map(s => s.pontosAcum))), 1)
+  const numEtapas = timeline.length
+
+  // Calcular pontos de cada jogador em cada etapa
+  const seriesMap: Record<string, number[]> = {}
+  jogadores.forEach(j => { seriesMap[j.userId] = [] })
+  timeline.forEach(t => {
+    jogadores.forEach(j => {
+      const snap = t.snapshots.find(s => s.userId === j.userId)
+      seriesMap[j.userId].push(snap?.pontosAcum ?? 0)
+    })
+  })
+
+  function toSVGX(i: number) {
+    return padL + (i / Math.max(numEtapas - 1, 1)) * chartW
+  }
+  function toSVGY(pts: number) {
+    return padT + chartH - (pts / maxPts) * chartH
+  }
+
+  function polylinePoints(userId: string): string {
+    return seriesMap[userId]
+      .map((pts, i) => `${toSVGX(i)},${toSVGY(pts)}`)
+      .join(' ')
+  }
+
+  // Grid lines (5 níveis)
+  const gridLines = Array.from({ length: 5 }, (_, i) => {
+    const pts = Math.round((maxPts / 4) * (4 - i))
+    const y = toSVGY(pts)
+    return { y, ty: y + 4, label: pts }
+  })
+
+  // X ticks (etapas, max 8 labels)
+  const step = Math.max(1, Math.floor(numEtapas / 8))
+  const xticks = timeline
+    .filter((_, i) => i % step === 0 || i === numEtapas - 1)
+    .map((t, _, arr) => ({
+      x: toSVGX(timeline.indexOf(t)),
+      label: t.etapa.is_final ? 'FIM' : `E${t.etapa.numero_etapa}`,
+    }))
+
+  // Linha vertical da virada
+  const annIdx = etapaDaVirada ? timeline.indexOf(etapaDaVirada) : -1
+  const annX = annIdx >= 0 ? toSVGX(annIdx) : null
 
   return (
-    <div className="card-flush animate-fade-up" style={{ overflow: 'hidden' }}>
-      <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, rgba(200,244,0,0.05) 0%, transparent 60%)' }}>
-        <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.15rem' }}>⚡ Análise</p>
-        <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.2rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Linha do Tempo</h2>
-      </div>
-
-      {/* Etapa decisiva */}
-      {etapaDaVirada && (
-        <div style={{ padding: '0.875rem 1.25rem', background: 'rgba(255,149,0,0.05)', borderBottom: '1px solid rgba(255,149,0,0.15)' }}>
-          <p style={{ fontSize: '0.72rem', color: '#ff9500', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
-            🔄 Etapa {etapaDaVirada.etapa.numero_etapa} — mudança de liderança
-          </p>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-            <span style={{ color: 'var(--lime)', fontWeight: 700 }}>{etapaDaVirada.snapshots[0].nome}</span>
-            {' '}passou para a frente com{' '}
-            <span style={{ color: 'var(--lime)', fontWeight: 700 }}>{etapaDaVirada.snapshots[0].pontosAcum}pts</span>
-          </p>
+    <section style={{ background: '#fff', border: '1px solid #E9E4D9', borderRadius: 16, padding: 22 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+        <div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A79F8E' }}>
+            Análise
+          </div>
+          <h2 style={{ font: "700 18px 'Archivo', sans-serif", color: '#16140F', margin: '6px 0 0' }}>
+            Evolução etapa a etapa
+          </h2>
         </div>
-      )}
 
-      {/* Timeline visual por etapa */}
-      <div style={{ padding: '0.875rem 1.25rem' }}>
-        <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem' }}>
-          Evolução etapa a etapa
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {timeline.map(({ etapa, snapshots }) => (
-            <div key={etapa.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-sub)', width: 28, flexShrink: 0 }}>
-                {etapa.is_final ? '🏁' : `E${etapa.numero_etapa}`}
-              </span>
-              <div style={{ flex: 1, display: 'flex', gap: '0.4rem' }}>
-                {snapshots.map((s, i) => {
-                  const maxPts = Math.max(...snapshots.map(x => x.pontosEtapa), 1)
-                  const pct = s.pontosEtapa === 0 ? 4 : Math.max(8, Math.round((s.pontosEtapa / maxPts) * 100))
-                  return (
-                    <div key={s.userId} style={{ flex: 1 }}>
-                      <div style={{ height: 6, background: 'var(--surface-2)', borderRadius: '999px', overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%', width: `${pct}%`,
-                          background: i === 0 ? 'var(--lime)' : i === 1 ? 'var(--blue)' : '#ff9500',
-                          borderRadius: '999px', transition: 'width 0.4s ease',
-                        }} />
-                      </div>
-                      <p style={{ fontSize: '0.6rem', color: i === 0 ? 'var(--lime)' : 'var(--text-sub)', marginTop: '0.2rem', fontFamily: 'Barlow Condensed, sans-serif', fontWeight: 700 }}>
-                        {s.nome} {s.pontosEtapa}
-                      </p>
-                    </div>
-                  )
-                })}
-              </div>
+        {/* Legenda */}
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          {jogadores.map(j => (
+            <div key={j.userId} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: j.cor, display: 'inline-block', flexShrink: 0 }} />
+              <span style={{ font: "600 12px 'Archivo', sans-serif", color: '#4A463D' }}>{j.nome}</span>
             </div>
           ))}
         </div>
       </div>
-    </div>
+
+      {/* Badge mudança de liderança */}
+      {etapaDaVirada && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          margin: '4px 0 14px', padding: '7px 12px',
+          borderRadius: 8, background: '#FBF2D9', border: '1px solid #F0E2B0',
+        }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#A37A0A' }}>
+            Etapa {etapaDaVirada.etapa.numero_etapa} · Mudança de liderança
+          </span>
+          <span style={{ font: "500 12px 'Archivo', sans-serif", color: '#6B5E2E' }}>
+            {etapaDaVirada.snapshots[0].nome} assumiu a frente com {etapaDaVirada.snapshots[0].pontosAcum} pts
+          </span>
+        </div>
+      )}
+
+      {/* Gráfico SVG */}
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block', overflow: 'visible' }}>
+        {/* Grid horizontal */}
+        {gridLines.map((g, i) => (
+          <g key={i}>
+            <line x1={padL} x2={W - padR} y1={g.y} y2={g.y} stroke="#EDE8DC" strokeWidth="1" />
+            <text x={padL - 10} y={g.ty} textAnchor="end" style={{ font: "500 10px 'JetBrains Mono', monospace", fill: '#B3AC9B' }}>
+              {g.label}
+            </text>
+          </g>
+        ))}
+
+        {/* Linha vertical da virada */}
+        {annX !== null && (
+          <line x1={annX} x2={annX} y1={padT} y2={padT + chartH} stroke="#16140F" strokeWidth="1" strokeDasharray="3 4" opacity="0.28" />
+        )}
+
+        {/* X ticks */}
+        {xticks.map((t, i) => (
+          <text key={i} x={t.x} y={H - 4} textAnchor="middle" style={{ font: "500 10px 'JetBrains Mono', monospace", fill: '#B3AC9B' }}>
+            {t.label}
+          </text>
+        ))}
+
+        {/* Linhas dos jogadores */}
+        {jogadores.map((j, idx) => (
+          <polyline
+            key={j.userId}
+            points={polylinePoints(j.userId)}
+            fill="none"
+            stroke={j.cor}
+            strokeWidth={idx === 0 ? 2.8 : 2.4}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        ))}
+
+        {/* Pontos finais */}
+        {jogadores.map((j, idx) => {
+          const lastPts = seriesMap[j.userId][numEtapas - 1] ?? 0
+          return (
+            <circle
+              key={j.userId}
+              cx={toSVGX(numEtapas - 1)}
+              cy={toSVGY(lastPts)}
+              r={idx === 0 ? 4.5 : 4}
+              fill={j.cor}
+              stroke="#fff"
+              strokeWidth="2"
+            />
+          )
+        })}
+      </svg>
+    </section>
   )
 }
