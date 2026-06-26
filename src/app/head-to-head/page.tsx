@@ -17,7 +17,7 @@ export default async function HistoricoPage() {
   return (
     <HistoricoClient
       perfis={perfis}
-      todosLeaderboards={todosLeaderboards}
+      todosLeaderboards={todosLeaderboards as any}
       historicas={historicas}
     />
   )
