@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -274,6 +274,12 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas,
         </div>
       </section>
 
+      {/* ── GRÁFICO VITÓRIAS ACUMULADAS ────────────────────────── */}
+      <GraficoVitoriasAcumuladas
+        provasSummary={provasSummary}
+        jogadoresOrdenados={jogadoresOrdenados}
+      />
+
       {/* ── ACCORDION POR COMPETIÇÃO ───────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {GRUPOS.map(grupo => {
@@ -316,6 +322,198 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas,
     </div>
   )
 }
+
+// ── Gráfico vitórias acumuladas ───────────────────────────────────────────────
+function GraficoVitoriasAcumuladas({
+  provasSummary,
+  jogadoresOrdenados,
+}: {
+  provasSummary: ProvaSummary[]
+  jogadoresOrdenados: Perfil[]
+}) {
+  // Ordenar provas cronologicamente: por ano, depois por tipo (giro→tour→vuelta)
+  const ordemTipo = { giro: 0, tour: 1, vuelta: 2, outras: 3 }
+  const provasOrdem = [...provasSummary]
+    .filter(ps => ps.tipo !== 'outras')
+    .sort((a, b) => a.ano - b.ano || ordemTipo[a.tipo] - ordemTipo[b.tipo])
+
+  if (provasOrdem.length < 2) return null
+
+  // Calcular vitórias acumuladas por jogador ao longo das provas
+  const acum: Record<string, number[]> = {}
+  jogadoresOrdenados.forEach(j => { acum[j.id] = [] })
+
+  const contagem: Record<string, number> = {}
+  jogadoresOrdenados.forEach(j => { contagem[j.id] = 0 })
+
+  for (const ps of provasOrdem) {
+    const vencedor = ps.resultados.find(r => r.rank === 1)
+    if (vencedor && contagem[vencedor.userId] !== undefined) {
+      contagem[vencedor.userId]++
+    }
+    jogadoresOrdenados.forEach(j => {
+      acum[j.id].push(contagem[j.id])
+    })
+  }
+
+  // SVG dimensions
+  const W = 900, H = 260
+  const padL = 36, padR = 20, padT = 20, padB = 40
+  const chartW = W - padL - padR
+  const chartH = H - padT - padB
+  const n = provasOrdem.length
+  const maxV = Math.max(...Object.values(acum).flat(), 1)
+
+  function toX(i: number) { return padL + (i / Math.max(n - 1, 1)) * chartW }
+  function toY(v: number) { return padT + chartH - (v / maxV) * chartH }
+
+  function polylinePoints(userId: string) {
+    return (acum[userId] ?? []).map((v, i) => `${toX(i)},${toY(v)}`).join(' ')
+  }
+
+  // Grid Y
+  const gridLines = Array.from({ length: maxV + 1 }, (_, i) => ({
+    y: toY(i), label: i,
+  })).filter((_, i) => i <= maxV)
+
+  // X labels: "Giro 22", "Tour 22", etc.
+  const FLAG: Record<string, string> = { giro: '🇮🇹', tour: '🇫🇷', vuelta: '🇪🇸' }
+  const SHORT: Record<string, string> = { giro: 'Giro', tour: 'Tour', vuelta: 'Vuelta' }
+  const xLabels = provasOrdem.map((ps, i) => ({
+    x: toX(i),
+    line1: FLAG[ps.tipo] ?? '',
+    line2: `${SHORT[ps.tipo] ?? ''} \'${String(ps.ano).slice(2)}`,
+  }))
+
+  // Ref para animação
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [progress, setProgress] = useState(0)
+  const animRef = useRef<number | null>(null)
+  const startRef = useRef<number | null>(null)
+  const DURATION = 1400
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        observer.disconnect()
+        startRef.current = null
+        const animate = (ts: number) => {
+          if (!startRef.current) startRef.current = ts
+          const p = Math.min((ts - startRef.current) / DURATION, 1)
+          setProgress(1 - Math.pow(1 - p, 3))
+          if (p < 1) animRef.current = requestAnimationFrame(animate)
+        }
+        animRef.current = requestAnimationFrame(animate)
+      }
+    }, { threshold: 0.2 })
+    if (svgRef.current) observer.observe(svgRef.current)
+    return () => { observer.disconnect(); if (animRef.current) cancelAnimationFrame(animRef.current) }
+  }, [])
+
+  function animatedPoints(userId: string) {
+    const series = acum[userId] ?? []
+    const visible = progress * (n - 1)
+    return series
+      .map((v, i) => {
+        if (i > Math.ceil(visible)) return null
+        const y = i <= visible ? toY(v) : toY(series[Math.floor(visible)] ?? 0)
+        return `${toX(i)},${y}`
+      })
+      .filter(Boolean).join(' ')
+  }
+
+  return (
+    <section style={{ background: '#fff', border: '1px solid #E9E4D9', borderRadius: 16, padding: 22 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A79F8E' }}>
+            Análise
+          </div>
+          <h2 style={{ font: "700 18px 'Archivo', sans-serif", color: '#16140F', margin: '6px 0 0' }}>
+            Corrida pelo topo — vitórias acumuladas
+          </h2>
+        </div>
+        {/* Legenda */}
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          {jogadoresOrdenados.map((j, idx) => (
+            <div key={j.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: PLAYER_COLORS[idx] ?? '#A79F8E', display: 'inline-block', flexShrink: 0 }} />
+              <span style={{ font: "600 12px 'Archivo', sans-serif", color: '#4A463D' }}>{j.full_name || j.username}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* SVG */}
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block', overflow: 'visible' }}>
+        {/* Grid horizontal */}
+        {gridLines.map((g, i) => (
+          <g key={i}>
+            <line x1={padL} x2={W - padR} y1={g.y} y2={g.y} stroke="#EDE8DC" strokeWidth="1" />
+            <text x={padL - 8} y={g.y + 4} textAnchor="end" style={{ font: "500 10px 'JetBrains Mono', monospace", fill: '#B3AC9B' }}>
+              {g.label}
+            </text>
+          </g>
+        ))}
+
+        {/* Grid vertical por prova */}
+        {xLabels.map((t, i) => (
+          <line key={i} x1={t.x} x2={t.x} y1={padT} y2={padT + chartH} stroke="#F4F0E6" strokeWidth="1" />
+        ))}
+
+        {/* Linhas animadas */}
+        {[...jogadoresOrdenados].reverse().map((j, revIdx) => {
+          const rank = jogadoresOrdenados.length - 1 - revIdx
+          const pts = animatedPoints(j.id)
+          if (!pts) return null
+          return (
+            <polyline
+              key={j.id}
+              points={pts}
+              fill="none"
+              stroke={PLAYER_COLORS[rank] ?? '#A79F8E'}
+              strokeWidth={rank === 0 ? 2.8 : 2.2}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          )
+        })}
+
+        {/* Pontos em cada prova (aparecem progressivamente) */}
+        {jogadoresOrdenados.map((j, rank) => {
+          const series = acum[j.id] ?? []
+          const visibleCount = Math.floor(progress * (n - 1)) + 1
+          return series.slice(0, visibleCount).map((v, i) => (
+            <circle
+              key={`${j.id}-${i}`}
+              cx={toX(i)}
+              cy={toY(v)}
+              r={i === visibleCount - 1 && progress < 0.99 ? 3 : 4}
+              fill={PLAYER_COLORS[rank] ?? '#A79F8E'}
+              stroke="#fff"
+              strokeWidth="2"
+              opacity={i === visibleCount - 1 && progress < 0.99 ? 0.6 : 1}
+            />
+          ))
+        })}
+
+        {/* X labels */}
+        {xLabels.map((t, i) => (
+          <g key={i}>
+            <text x={t.x} y={H - 18} textAnchor="middle" style={{ font: "600 11px 'Archivo', sans-serif", fill: '#A79F8E' }}>
+              {t.line1}
+            </text>
+            <text x={t.x} y={H - 4} textAnchor="middle" style={{ font: "500 9px 'JetBrains Mono', monospace", fill: '#B3AC9B' }}>
+              {t.line2}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </section>
+  )
+}
+
 
 // ── Accordion por grupo ───────────────────────────────────────────────────────
 function GrupoAccordion({
