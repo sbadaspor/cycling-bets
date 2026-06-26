@@ -84,7 +84,7 @@ export default async function HomePage() {
       <div style={{ maxWidth: 1216, margin: '0 auto', padding: '0 32px' }}>
 
         {/* Hero */}
-        <div style={{ padding: '30px 0 22px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ padding: '20px 0 16px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A79F8E' }}>
               <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#E0451F', display: 'inline-block' }} />
@@ -148,7 +148,7 @@ export default async function HomePage() {
         )}
 
         {/* Main grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, paddingBottom: 40 }}>
+        <div className="homepage-grid" style={{ paddingBottom: 40 }}>
 
           {/* LEFT */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
