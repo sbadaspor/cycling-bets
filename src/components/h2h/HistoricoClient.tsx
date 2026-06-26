@@ -111,12 +111,19 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas,
         resultados: [],
       })
     }
-    if (h.posicao_grupo) {
-      historicasMap.get(key)!.resultados.push({
-        userId: h.user_id,
-        rank: h.posicao_grupo,
-        pontos: h.pontos_total ?? 0,
-      })
+    // Adicionar sempre, mesmo sem posicao_grupo — calcular rank a seguir
+    historicasMap.get(key)!.resultados.push({
+      userId: h.user_id,
+      rank: h.posicao_grupo ?? 999,
+      pontos: h.pontos_total ?? 0,
+    })
+  }
+  // Se posicao_grupo era null (rank=999), calcular rank por pontos
+  for (const ps of historicasMap.values()) {
+    const hasNullRank = ps.resultados.some(r => r.rank === 999)
+    if (hasNullRank) {
+      const sorted = [...ps.resultados].sort((a, b) => b.pontos - a.pontos)
+      sorted.forEach((r, i) => { r.rank = i + 1 })
     }
   }
   provasSummary.push(...historicasMap.values())
