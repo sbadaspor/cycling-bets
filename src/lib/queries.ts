@@ -91,14 +91,22 @@ export async function getUltimasApostas(userId: string, limit = 10) {
 
 export async function getLeaderboardGeral(): Promise<LeaderboardEntry[]> {
   const supabase = await createClient()
+
+  // 1. Buscar IDs das provas finalizadas
+  const { data: provasFinalizadas, error: provasErr } = await supabase
+    .from('provas')
+    .select('id')
+    .eq('status', 'finalizada')
+
+  if (provasErr) throw provasErr
+  const idsFinalizadas = (provasFinalizadas ?? []).map((p: { id: string }) => p.id)
+  if (idsFinalizadas.length === 0) return []
+
+  // 2. Buscar apostas calculadas dessas provas
   const { data, error } = await supabase
     .from('apostas')
-    .select(`
-      *,
-      perfil:perfis(*),
-      prova:provas!inner(status)
-    `)
-    .eq('prova.status', 'finalizada')
+    .select(`*, perfil:perfis(*)`)
+    .in('prova_id', idsFinalizadas)
     .eq('calculada', true)
 
   if (error) throw error
@@ -352,34 +360,39 @@ export interface LeaderboardFinalizada {
 export async function getAllLeaderboardsFinalizadas(): Promise<LeaderboardFinalizada[]> {
   const supabase = await createClient()
 
+  // 1. Buscar provas finalizadas com os seus detalhes
+  const { data: provasData, error: provasErr } = await supabase
+    .from('provas')
+    .select('id, nome, categoria, data_fim')
+    .eq('status', 'finalizada')
+    .order('data_fim', { ascending: false })
+
+  if (provasErr) throw provasErr
+  const provasFinalizadas = (provasData ?? []) as ProvaInfo[]
+  if (provasFinalizadas.length === 0) return []
+
+  const idsFinalizadas = provasFinalizadas.map(p => p.id)
+
+  // 2. Buscar apostas calculadas dessas provas
   const { data, error } = await supabase
     .from('apostas')
-    .select(`
-      *,
-      perfil:perfis(*),
-      prova:provas!inner(id, nome, categoria, data_fim, status)
-    `)
-    .eq('prova.status', 'finalizada')
+    .select(`*, perfil:perfis(*)`)
+    .in('prova_id', idsFinalizadas)
     .eq('calculada', true)
 
   if (error) throw error
 
+  // Indexar provas por id para lookup rápido
+  const provasIndex = new Map<string, ProvaInfo>(provasFinalizadas.map(p => [p.id, p]))
+
   const mapaProvas = new Map<string, { prova: ProvaInfo; apostas: ApostaComProvaJoin[] }>()
 
   for (const aposta of ((data ?? []) as ApostaComProvaJoin[])) {
-    const provaJoin = aposta.prova
-    if (!provaJoin) continue
+    const prova = provasIndex.get(aposta.prova_id)
+    if (!prova) continue
 
     if (!mapaProvas.has(aposta.prova_id)) {
-      mapaProvas.set(aposta.prova_id, {
-        prova: {
-          id: provaJoin.id,
-          nome: provaJoin.nome,
-          categoria: provaJoin.categoria,
-          data_fim: provaJoin.data_fim,
-        },
-        apostas: [],
-      })
+      mapaProvas.set(aposta.prova_id, { prova, apostas: [] })
     }
     mapaProvas.get(aposta.prova_id)!.apostas.push(aposta)
   }
