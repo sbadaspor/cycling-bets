@@ -19,52 +19,48 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
 
   getConfigCategoria(categoria)
 
-  // 1. Calcular pontos acumulados por jogador em cada etapa
-  //    acumulados[userId] vai crescendo etapa a etapa
-  const acumulados: Record<string, number> = {}
-  apostas.forEach(a => { acumulados[a.user_id] = 0 })
-
-  type Snapshot = { userId: string; nome: string; pontosAcum: number; lider: boolean }
+  // Para cada etapa, calcular os pontos de cada apostador
+  // contra a classificação geral DAQUELA etapa (não acumulado).
+  // A classificação_geral_top20 já reflecte a classificação geral
+  // da corrida até àquele momento, por isso os pontos de cada etapa
+  // são exactamente os pontos do apostador nesse momento da prova.
+  type Snapshot = { userId: string; nome: string; pontos: number; lider: boolean }
   const timeline: Array<{ etapa: EtapaResultado; snapshots: Snapshot[] }> = []
 
   for (const etapa of etapas) {
-    for (const aposta of apostas) {
-      const r = calcularPontos(
-        aposta.apostas_top20 ?? [],
-        etapa.classificacao_geral_top20 ?? [],
-        { sprint: aposta.camisola_sprint ?? '', montanha: aposta.camisola_montanha ?? '', juventude: aposta.camisola_juventude ?? '' },
-        { sprint: etapa.camisola_sprint ?? '', montanha: etapa.camisola_montanha ?? '', juventude: etapa.camisola_juventude ?? '' },
-        categoria
-      )
-      acumulados[aposta.user_id] = (acumulados[aposta.user_id] ?? 0) + r.pontos_total
-    }
-
-    // Snapshot desta etapa: ordenado por pontos decrescentes
     const snapshots: Snapshot[] = apostas
-      .map(a => ({
-        userId: a.user_id,
-        nome: nomeExibir(a.perfil, '?'),
-        pontosAcum: acumulados[a.user_id] ?? 0,
-        lider: false,
-      }))
-      .sort((a, b) => b.pontosAcum - a.pontosAcum)
+      .map(aposta => {
+        const r = calcularPontos(
+          aposta.apostas_top20 ?? [],
+          etapa.classificacao_geral_top20 ?? [],
+          { sprint: aposta.camisola_sprint ?? '', montanha: aposta.camisola_montanha ?? '', juventude: aposta.camisola_juventude ?? '' },
+          { sprint: etapa.camisola_sprint ?? '', montanha: etapa.camisola_montanha ?? '', juventude: etapa.camisola_juventude ?? '' },
+          categoria
+        )
+        return {
+          userId: aposta.user_id,
+          nome: nomeExibir(aposta.perfil, '?'),
+          pontos: r.pontos_total,
+          lider: false,
+        }
+      })
+      .sort((a, b) => b.pontos - a.pontos)
 
     snapshots.forEach((s, i) => { s.lider = i === 0 })
     timeline.push({ etapa, snapshots })
   }
 
-  // 2. Ranking final — define a cor de cada jogador
-  //    O 1º classificado fica com a cor 0 (vermelho), 2º com azul, etc.
+  // Ranking final = última etapa
   const rankingFinal = timeline[timeline.length - 1].snapshots
 
-  // jogadores ORDENADOS pelo ranking final — cor[0] vai para o líder
+  // Jogadores ordenados pelo ranking final — cor[0] para o líder
   const jogadores = rankingFinal.map((s, rank) => ({
     userId: s.userId,
     nome: s.nome,
     cor: PLAYER_COLORS[rank] ?? '#A79F8E',
   }))
 
-  // 3. Detectar mudança de liderança
+  // Detectar mudança de liderança
   let etapaDaVirada: typeof timeline[0] | null = null
   for (let i = 1; i < timeline.length; i++) {
     if (timeline[i - 1].snapshots[0]?.userId !== timeline[i].snapshots[0]?.userId) {
@@ -73,18 +69,17 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
     }
   }
 
-  // 4. Construir séries para o gráfico
-  //    seriesMap[userId] = array de pontosAcum por etapa, na ordem do timeline
+  // Séries para o gráfico: pontos por etapa (não acumulado)
   const seriesMap: Record<string, number[]> = {}
   jogadores.forEach(j => { seriesMap[j.userId] = [] })
   timeline.forEach(t => {
     jogadores.forEach(j => {
       const snap = t.snapshots.find(s => s.userId === j.userId)
-      seriesMap[j.userId].push(snap?.pontosAcum ?? 0)
+      seriesMap[j.userId].push(snap?.pontos ?? 0)
     })
   })
 
-  // 5. Dimensões SVG
+  // Dimensões SVG
   const W = 720, H = 272
   const padL = 48, padR = 20, padT = 20, padB = 36
   const chartW = W - padL - padR
@@ -104,11 +99,10 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
       .join(' ')
   }
 
-  // Grid horizontal (5 níveis)
+  // Grid horizontal
   const gridLines = Array.from({ length: 5 }, (_, i) => {
     const pts = Math.round((maxPts / 4) * (4 - i))
-    const y = toY(pts)
-    return { y, ty: y + 4, label: pts }
+    return { y: toY(pts), ty: toY(pts) + 4, label: pts }
   })
 
   // X ticks
@@ -120,7 +114,6 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
       label: t.etapa.is_final ? 'FIM' : `E${t.etapa.numero_etapa}`,
     }))
 
-  // Linha vertical da virada
   const annIdx = etapaDaVirada ? timeline.indexOf(etapaDaVirada) : -1
   const annX = annIdx >= 0 ? toX(annIdx) : null
 
@@ -137,7 +130,7 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
           </h2>
         </div>
 
-        {/* Legenda — mesma ordem e cor que as linhas */}
+        {/* Legenda */}
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           {jogadores.map(j => (
             <div key={j.userId} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -159,14 +152,14 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
             Etapa {etapaDaVirada.etapa.numero_etapa} · Mudança de liderança
           </span>
           <span style={{ font: "500 12px 'Archivo', sans-serif", color: '#6B5E2E' }}>
-            {etapaDaVirada.snapshots[0].nome} assumiu a frente com {etapaDaVirada.snapshots[0].pontosAcum} pts
+            {etapaDaVirada.snapshots[0].nome} passou para a frente com {etapaDaVirada.snapshots[0].pontos} pts
           </span>
         </div>
       )}
 
       {/* Gráfico SVG */}
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block', overflow: 'visible' }}>
-        {/* Grid horizontal */}
+        {/* Grid */}
         {gridLines.map((g, i) => (
           <g key={i}>
             <line x1={padL} x2={W - padR} y1={g.y} y2={g.y} stroke="#EDE8DC" strokeWidth="1" />
@@ -176,7 +169,7 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
           </g>
         ))}
 
-        {/* Linha vertical da virada */}
+        {/* Linha da virada */}
         {annX !== null && (
           <line x1={annX} x2={annX} y1={padT} y2={padT + chartH} stroke="#16140F" strokeWidth="1" strokeDasharray="3 4" opacity="0.28" />
         )}
@@ -188,7 +181,7 @@ export default function MomentoDaVirada({ etapas, apostas, categoria }: Props) {
           </text>
         ))}
 
-        {/* Linhas — desenhadas do último para o primeiro para o líder ficar por cima */}
+        {/* Linhas — do último para o primeiro para o líder ficar por cima */}
         {[...jogadores].reverse().map((j, revIdx) => {
           const rank = jogadores.length - 1 - revIdx
           return (
