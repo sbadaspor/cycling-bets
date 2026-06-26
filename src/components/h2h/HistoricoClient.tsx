@@ -282,17 +282,23 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas,
             .sort((a, b) => b.ano - a.ano)
           if (provasGrupo.length === 0) return null
 
-          // Mais vitórias nesta corrida
+          // Mais vitórias nesta corrida — pode haver empate
           const vitoriasNesta: Record<string, number> = {}
           for (const ps of provasGrupo) {
             const vencedor = ps.resultados.find(r => r.rank === 1)
             if (vencedor) vitoriasNesta[vencedor.userId] = (vitoriasNesta[vencedor.userId] ?? 0) + 1
           }
-          const topUserId = Object.entries(vitoriasNesta).sort((a, b) => b[1] - a[1])[0]?.[0]
-          const topPerfil = perfis.find(p => p.id === topUserId)
-          const topVitorias = topUserId ? vitoriasNesta[topUserId] : 0
-          const topIdx = jogadoresOrdenados.findIndex(p => p.id === topUserId)
-          const topCor = PLAYER_COLORS[topIdx >= 0 ? topIdx : 0] ?? '#A79F8E'
+          const maxVitorias = Math.max(0, ...Object.values(vitoriasNesta))
+          const topVitorias = maxVitorias
+          const topPerfis = Object.entries(vitoriasNesta)
+            .filter(([, v]) => v === maxVitorias)
+            .map(([userId]) => {
+              const perfil = perfis.find(p => p.id === userId)
+              const idx = jogadoresOrdenados.findIndex(p => p.id === userId)
+              const cor = PLAYER_COLORS[idx >= 0 ? idx : 0] ?? '#A79F8E'
+              return perfil ? { perfil, cor } : null
+            })
+            .filter((x): x is { perfil: Perfil; cor: string } => !!x)
 
           return (
             <GrupoAccordion
@@ -301,9 +307,8 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas,
               provas={provasGrupo}
               perfis={perfis}
               jogadoresOrdenados={jogadoresOrdenados}
-              topPerfil={topPerfil}
+              topPerfis={topPerfis}
               topVitorias={topVitorias}
-              topCor={topCor}
             />
           )
         })}
@@ -314,15 +319,14 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas,
 
 // ── Accordion por grupo ───────────────────────────────────────────────────────
 function GrupoAccordion({
-  grupo, provas, perfis, jogadoresOrdenados, topPerfil, topVitorias, topCor,
+  grupo, provas, perfis, jogadoresOrdenados, topPerfis, topVitorias,
 }: {
   grupo: typeof GRUPOS[0]
   provas: ProvaSummary[]
   perfis: Perfil[]
   jogadoresOrdenados: Perfil[]
-  topPerfil?: Perfil
+  topPerfis: Array<{ perfil: Perfil; cor: string }>
   topVitorias: number
-  topCor: string
 }) {
   const [aberto, setAberto] = useState(true)
 
@@ -351,29 +355,35 @@ function GrupoAccordion({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {/* Mais vitórias */}
-          {topPerfil && (
+          {/* Mais vitórias — mostra todos os empatados */}
+          {topPerfis.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#A79F8E' }}>
                 Mais vitórias
               </span>
-              <div style={{
-                width: 24, height: 24, borderRadius: '50%', overflow: 'hidden',
-                background: topPerfil.avatar_url ? 'transparent' : topCor,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                font: "700 9px 'Archivo', sans-serif", color: '#fff', flexShrink: 0,
-              }}>
-                {topPerfil.avatar_url
-                  ? <img src={topPerfil.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : topPerfil.username[0].toUpperCase()
-                }
-              </div>
-              <span style={{ font: "700 13px 'Archivo', sans-serif", color: '#16140F' }}>
-                {topPerfil.full_name || topPerfil.username}
-                <span style={{ font: "600 12px 'Archivo', sans-serif", color: '#A79F8E', marginLeft: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {topPerfis.map(({ perfil, cor }) => (
+                  <div key={perfil.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: '50%', overflow: 'hidden',
+                      background: perfil.avatar_url ? 'transparent' : cor,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      font: "700 9px 'Archivo', sans-serif", color: '#fff', flexShrink: 0,
+                    }}>
+                      {perfil.avatar_url
+                        ? <img src={perfil.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : perfil.username[0].toUpperCase()
+                      }
+                    </div>
+                    <span style={{ font: "700 13px 'Archivo', sans-serif", color: '#16140F' }}>
+                      {perfil.full_name || perfil.username}
+                    </span>
+                  </div>
+                ))}
+                <span style={{ font: "600 12px 'Archivo', sans-serif", color: '#A79F8E' }}>
                   · {topVitorias} vit.
                 </span>
-              </span>
+              </div>
             </div>
           )}
           <svg
