@@ -7,6 +7,8 @@ interface Props {
   items: ActivityItem[]
 }
 
+const PLAYER_COLORS = ['#E0451F', '#2563EB', '#16A34A', '#E8488B', '#EAB308']
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60000)
@@ -14,83 +16,66 @@ function timeAgo(dateStr: string): string {
   if (mins < 60) return `${mins}min`
   const hours = Math.floor(mins / 60)
   if (hours < 24) return `${hours}h`
-  const days = Math.floor(hours / 24)
-  return `${days}d`
+  return `${Math.floor(hours / 24)}d`
 }
 
 export default function ActivityFeed({ items }: Props) {
   if (items.length === 0) return null
 
   return (
-    <div className="card-flush" style={{ marginTop: '0' }}>
+    <section style={{ background: '#fff', border: '1px solid #E9E4D9', borderRadius: 16, padding: 20 }}>
       <div style={{
-        padding: '0.875rem 1.25rem 0.6rem',
-        borderBottom: '1px solid var(--border)',
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600,
+        letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A79F8E',
+        marginBottom: 14,
       }}>
-        <p style={{
-          fontSize: '0.68rem', color: 'var(--text-dim)', fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0,
-        }}>
-          🕐 Atividade recente
-        </p>
+        Atividade recente
       </div>
 
-      <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {items.map((item, idx) => {
-          const nomeExibicao = item.fullName || item.username
+          const nome = item.fullName || item.username
+          const cor = PLAYER_COLORS[idx % PLAYER_COLORS.length]
           return (
             <Link
               key={`${item.userId}-${item.createdAt}`}
               href={`/provas/${item.provaId}`}
               style={{
-                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                padding: '0.625rem 1.25rem',
-                borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none',
-                textDecoration: 'none',
-                transition: 'background 0.12s',
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '11px 6px', borderRadius: 10,
+                textDecoration: 'none', transition: 'background 0.12s',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
-              onMouseLeave={e => (e.currentTarget.style.background = '')}
+              onMouseEnter={e => (e.currentTarget.style.background = '#FBFAF5')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               {/* Avatar */}
               <div style={{
-                width: 28, height: 28, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
-                background: item.avatarUrl ? 'transparent' : 'rgba(200,244,0,0.1)',
-                border: '1px solid rgba(200,244,0,0.15)',
+                width: 34, height: 34, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+                background: item.avatarUrl ? 'transparent' : cor,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.7rem', fontWeight: 900, color: 'var(--lime)',
-                fontFamily: 'Barlow Condensed, sans-serif',
+                font: "700 11px 'Archivo', sans-serif", color: '#fff',
               }}>
                 {item.avatarUrl
-                  ? <img src={item.avatarUrl} alt={nomeExibicao} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : nomeExibicao[0]?.toUpperCase()
+                  ? <img src={item.avatarUrl} alt={nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : nome[0]?.toUpperCase()
                 }
               </div>
 
               {/* Texto */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text)', fontWeight: 600 }}>
-                  {nomeExibicao}
-                </span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-                  {' '}apostou em{' '}
-                </span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {item.provaNome}
-                </span>
+              <div style={{ flex: 1, font: "500 13px 'Archivo', sans-serif", color: '#6B665B', lineHeight: 1.45 }}>
+                <span style={{ fontWeight: 700, color: '#16140F' }}>{nome}</span>
+                {' '}apostou em{' '}
+                <span style={{ fontWeight: 600, color: '#16140F' }}>{item.provaNome}</span>
               </div>
 
               {/* Tempo */}
-              <span style={{
-                fontSize: '0.68rem', color: 'var(--text-sub)',
-                flexShrink: 0, fontVariantNumeric: 'tabular-nums',
-              }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#B3AC9B', whiteSpace: 'nowrap', flexShrink: 0 }}>
                 {timeAgo(item.createdAt)}
-              </span>
+              </div>
             </Link>
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }
