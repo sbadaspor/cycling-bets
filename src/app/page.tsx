@@ -81,9 +81,7 @@ export default async function HomePage() {
     <div style={{ minHeight: '100vh', background: '#F6F4EF', fontFamily: "'Archivo', sans-serif" }}>
       <AuthHashHandler />
 
-      <div style={{ maxWidth: 1216, margin: '0 auto', padding: '0 32px' }}>
-
-        {/* Hero */}
+      <>{/* Hero */
         <div style={{ padding: '20px 0 16px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A79F8E' }}>
@@ -194,7 +192,7 @@ export default async function HomePage() {
             {feedItems.length > 0 && <ActivityFeed items={feedItems} />}
           </div>
         </div>
-      </div>
+      </>
     </div>
   )
 }
