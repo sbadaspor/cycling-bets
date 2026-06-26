@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
         <Navbar />
-        <main style={{ maxWidth: 1216, margin: '0 auto', padding: '20px 16px 40px' }}>
+        <main style={{ maxWidth: 1440, margin: '0 auto', padding: '20px 32px 40px' }}>
           {children}
         </main>
       </body>
