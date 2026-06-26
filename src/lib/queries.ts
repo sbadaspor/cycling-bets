@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type {
   Aposta,
   CategoriaProvaTipo,
@@ -90,7 +91,7 @@ export async function getUltimasApostas(userId: string, limit = 10) {
 // ============================================================
 
 export async function getLeaderboardGeral(): Promise<LeaderboardEntry[]> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // 1. Buscar IDs das provas finalizadas
   const { data: provasFinalizadas, error: provasErr } = await supabase
@@ -102,7 +103,7 @@ export async function getLeaderboardGeral(): Promise<LeaderboardEntry[]> {
   const idsFinalizadas = (provasFinalizadas ?? []).map((p: { id: string }) => p.id)
   if (idsFinalizadas.length === 0) return []
 
-  // 2. Buscar apostas calculadas dessas provas
+  // 2. Buscar apostas calculadas dessas provas (admin bypassa RLS)
   const { data, error } = await supabase
     .from('apostas')
     .select(`*, perfil:perfis(*)`)
@@ -158,7 +159,7 @@ export async function getLeaderboardGeral(): Promise<LeaderboardEntry[]> {
 // ============================================================
 
 export async function getLeaderboardProva(provaId: string): Promise<LeaderboardProva[]> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('apostas')
     .select(`*, perfil:perfis(*)`)
@@ -254,7 +255,7 @@ export async function getApostaPorUser(provaId: string, userId: string): Promise
 }
 
 export async function getApostasProvaComPerfil(provaId: string): Promise<Aposta[]> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('apostas')
     .select(`*, perfil:perfis(*)`)
@@ -331,7 +332,7 @@ export async function getUltimaProvaFinalizada(): Promise<Prova | null> {
 // ============================================================
 
 export async function getVitoriasHistoricas(): Promise<VitoriaHistorica[]> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('vitorias_historicas')
     .select('*, perfil:perfis(*)')
@@ -358,7 +359,7 @@ export interface LeaderboardFinalizada {
 }
 
 export async function getAllLeaderboardsFinalizadas(): Promise<LeaderboardFinalizada[]> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // 1. Buscar provas finalizadas com os seus detalhes
   const { data: provasData, error: provasErr } = await supabase
@@ -373,7 +374,7 @@ export async function getAllLeaderboardsFinalizadas(): Promise<LeaderboardFinali
 
   const idsFinalizadas = provasFinalizadas.map(p => p.id)
 
-  // 2. Buscar apostas calculadas dessas provas
+  // 2. Buscar apostas calculadas dessas provas (admin bypassa RLS)
   const { data, error } = await supabase
     .from('apostas')
     .select(`*, perfil:perfis(*)`)
@@ -489,7 +490,7 @@ export async function getVitoriasAgregadas(): Promise<VitoriasJogador[]> {
 // ============================================================
 
 export async function getHomepageStats() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const [
     { count: totalApostas },
@@ -519,7 +520,7 @@ export interface ActivityItem {
 }
 
 export async function getActivityFeed(limit = 6): Promise<ActivityItem[]> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data } = await supabase
     .from('apostas')
