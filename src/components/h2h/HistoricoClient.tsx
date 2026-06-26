@@ -19,6 +19,19 @@ interface ProvaSummary {
   resultados: Array<{ userId: string; rank: number; pontos: number }>
 }
 
+interface VitoriaJogador {
+  perfil: Perfil
+  total: number
+  porCategoria: Record<string, number>
+}
+
+interface GrandeVoltaEntry {
+  userId: string
+  giro: number
+  tour: number
+  vuelta: number
+}
+
 interface Props {
   perfis: Perfil[]
   todosLeaderboards: Array<{
@@ -29,6 +42,8 @@ interface Props {
     id: string; user_id: string; ano: number; nome_prova: string
     categoria: string; posicao_grupo: number; pontos_total: number
   }>
+  vitorias: VitoriaJogador[]
+  grandesVoltas: GrandeVoltaEntry[]
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -67,7 +82,7 @@ function Avatar({ perfil, size = 40, cor }: { perfil: Perfil; size?: number; cor
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export default function HistoricoClient({ perfis, todosLeaderboards, historicas }: Props) {
+export default function HistoricoClient({ perfis, todosLeaderboards, historicas, vitorias, grandesVoltas }: Props) {
 
   // 1. Construir provasSummary (app + históricas)
   const provasSummary: ProvaSummary[] = []
@@ -117,29 +132,33 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas 
   const contagemTipo = { giro: 0, tour: 0, vuelta: 0, outras: 0 }
   for (const ps of provasSummary) contagemTipo[ps.tipo]++
 
-  // 4. Stats globais por jogador (vitórias = 1º lugar)
+  // 4. Stats globais — usar dados já calculados pelo getDadosVitorias (fonte de verdade)
   const statsMap: Record<string, { vitorias: number; pontos: number; provas: number; porTipo: Record<string, number> }> = {}
   for (const p of perfis) statsMap[p.id] = { vitorias: 0, pontos: 0, provas: 0, porTipo: { giro: 0, tour: 0, vuelta: 0 } }
 
+  // Preencher vitórias a partir dos dados correctos
+  for (const v of vitorias) {
+    const id = v.perfil.id
+    if (!statsMap[id]) continue
+    statsMap[id].vitorias = v.total
+  }
+  for (const gv of grandesVoltas) {
+    if (!statsMap[gv.userId]) continue
+    statsMap[gv.userId].porTipo = { giro: gv.giro, tour: gv.tour, vuelta: gv.vuelta }
+  }
+  // Pontos e provas continuam a ser calculados do provasSummary
   for (const ps of provasSummary) {
     for (const r of ps.resultados) {
       if (!statsMap[r.userId]) continue
       statsMap[r.userId].provas++
       statsMap[r.userId].pontos += r.pontos
-      if (r.rank === 1) {
-        statsMap[r.userId].vitorias++
-        if (ps.tipo !== 'outras') statsMap[r.userId].porTipo[ps.tipo]++
-      }
     }
   }
 
-  // Ordenar jogadores por vitórias
-  const jogadoresOrdenados = [...perfis]
-    .filter(p => statsMap[p.id])
-    .sort((a, b) =>
-      statsMap[b.id].vitorias - statsMap[a.id].vitorias ||
-      statsMap[b.id].pontos - statsMap[a.id].pontos
-    )
+  // Ordenar jogadores pela ordem do vitorias (que já vem ordenado correctamente)
+  const jogadoresOrdenados = vitorias
+    .map(v => perfis.find(p => p.id === v.perfil.id))
+    .filter((p): p is Perfil => !!p)
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 28 }}>
