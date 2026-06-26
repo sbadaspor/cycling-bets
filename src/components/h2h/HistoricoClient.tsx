@@ -161,7 +161,7 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas,
     .filter((p): p is Perfil => !!p)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 28 }}>
 
       {/* ── HEADER ─────────────────────────────────────────────── */}
       <div>
@@ -201,8 +201,7 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas,
         </div>
       </div>
 
-      {/* ── MAIN GRID: confronto + accordions ─────────────────── */}
-      <div className="historico-grid">
+      {/* ── CONFRONTO GERAL ────────────────────────────────────── */}
       <section style={{ background: '#fff', border: '1px solid #E9E4D9', borderRadius: 16, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #F1EDE3' }}>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#A79F8E' }}>
@@ -213,7 +212,7 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas,
           </span>
         </div>
 
-        <div className="confronto-cards">
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${jogadoresOrdenados.length}, 1fr)`, gap: 0 }}>
           {jogadoresOrdenados.map((p, idx) => {
             const stats = statsMap[p.id]
             const cor = PLAYER_COLORS[idx] ?? '#A79F8E'
@@ -302,7 +301,6 @@ export default function HistoricoClient({ perfis, todosLeaderboards, historicas,
           )
         })}
       </div>
-      </div>{/* end historico-grid */}
     </div>
   )
 }
