@@ -331,7 +331,6 @@ function GraficoVitoriasAcumuladas({
   provasSummary: ProvaSummary[]
   jogadoresOrdenados: Perfil[]
 }) {
-  // Ordenar provas cronologicamente: por ano, depois por tipo (giro→tour→vuelta)
   const ordemTipo = { giro: 0, tour: 1, vuelta: 2, outras: 3 }
   const provasOrdem = [...provasSummary]
     .filter(ps => ps.tipo !== 'outras')
@@ -339,26 +338,19 @@ function GraficoVitoriasAcumuladas({
 
   if (provasOrdem.length < 2) return null
 
-  // Calcular vitórias acumuladas por jogador ao longo das provas
+  // Calcular vitórias acumuladas
   const acum: Record<string, number[]> = {}
   jogadoresOrdenados.forEach(j => { acum[j.id] = [] })
-
   const contagem: Record<string, number> = {}
   jogadoresOrdenados.forEach(j => { contagem[j.id] = 0 })
-
   for (const ps of provasOrdem) {
     const vencedor = ps.resultados.find(r => r.rank === 1)
-    if (vencedor && contagem[vencedor.userId] !== undefined) {
-      contagem[vencedor.userId]++
-    }
-    jogadoresOrdenados.forEach(j => {
-      acum[j.id].push(contagem[j.id])
-    })
+    if (vencedor && contagem[vencedor.userId] !== undefined) contagem[vencedor.userId]++
+    jogadoresOrdenados.forEach(j => { acum[j.id].push(contagem[j.id]) })
   }
 
-  // SVG dimensions
-  const W = 900, H = 260
-  const padL = 36, padR = 20, padT = 20, padB = 40
+  const W = 900, H = 280
+  const padL = 36, padR = 24, padT = 24, padB = 48
   const chartW = W - padL - padR
   const chartH = H - padT - padB
   const n = provasOrdem.length
@@ -367,30 +359,42 @@ function GraficoVitoriasAcumuladas({
   function toX(i: number) { return padL + (i / Math.max(n - 1, 1)) * chartW }
   function toY(v: number) { return padT + chartH - (v / maxV) * chartH }
 
-  function polylinePoints(userId: string) {
-    return (acum[userId] ?? []).map((v, i) => `${toX(i)},${toY(v)}`).join(' ')
+  // Interpolação: posição exacta do rider num progresso contínuo
+  function riderPos(userId: string, prog: number): { x: number; y: number } {
+    const series = acum[userId] ?? []
+    const t = prog * (n - 1)
+    const i = Math.floor(t)
+    const frac = t - i
+    if (i >= series.length - 1) return { x: toX(n - 1), y: toY(series[n - 1] ?? 0) }
+    const y1 = toY(series[i] ?? 0)
+    const y2 = toY(series[i + 1] ?? 0)
+    return { x: toX(i) + frac * (toX(i + 1) - toX(i)), y: y1 + frac * (y2 - y1) }
   }
 
-  // Grid Y
-  const gridLines = Array.from({ length: maxV + 1 }, (_, i) => ({
-    y: toY(i), label: i,
-  })).filter((_, i) => i <= maxV)
+  function polylineVisible(userId: string, prog: number): string {
+    const series = acum[userId] ?? []
+    const t = prog * (n - 1)
+    const pts: string[] = []
+    for (let i = 0; i < series.length; i++) {
+      if (i > t) break
+      pts.push(`${toX(i)},${toY(series[i])}`)
+    }
+    // ponto interpolado na ponta
+    const { x, y } = riderPos(userId, prog)
+    if (pts.length > 0) pts.push(`${x},${y}`)
+    return pts.join(' ')
+  }
 
-  // X labels: "Giro 22", "Tour 22", etc.
   const FLAG: Record<string, string> = { giro: '🇮🇹', tour: '🇫🇷', vuelta: '🇪🇸' }
   const SHORT: Record<string, string> = { giro: 'Giro', tour: 'Tour', vuelta: 'Vuelta' }
-  const xLabels = provasOrdem.map((ps, i) => ({
-    x: toX(i),
-    line1: FLAG[ps.tipo] ?? '',
-    line2: `${SHORT[ps.tipo] ?? ''} \'${String(ps.ano).slice(2)}`,
-  }))
+  const gridLines = Array.from({ length: maxV + 1 }, (_, i) => ({ y: toY(i), label: i }))
 
-  // Ref para animação
+  // Animação
   const svgRef = useRef<SVGSVGElement>(null)
   const [progress, setProgress] = useState(0)
   const animRef = useRef<number | null>(null)
   const startRef = useRef<number | null>(null)
-  const DURATION = 1400
+  const DURATION = 3000
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
@@ -400,7 +404,9 @@ function GraficoVitoriasAcumuladas({
         const animate = (ts: number) => {
           if (!startRef.current) startRef.current = ts
           const p = Math.min((ts - startRef.current) / DURATION, 1)
-          setProgress(1 - Math.pow(1 - p, 3))
+          // ease-in-out para parecer pedalar com ritmo
+          const eased = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p
+          setProgress(eased)
           if (p < 1) animRef.current = requestAnimationFrame(animate)
         }
         animRef.current = requestAnimationFrame(animate)
@@ -410,21 +416,29 @@ function GraficoVitoriasAcumuladas({
     return () => { observer.disconnect(); if (animRef.current) cancelAnimationFrame(animRef.current) }
   }, [])
 
-  function animatedPoints(userId: string) {
-    const series = acum[userId] ?? []
-    const visible = progress * (n - 1)
-    return series
-      .map((v, i) => {
-        if (i > Math.ceil(visible)) return null
-        const y = i <= visible ? toY(v) : toY(series[Math.floor(visible)] ?? 0)
-        return `${toX(i)},${y}`
-      })
-      .filter(Boolean).join(' ')
-  }
+  const [imgCache, setImgCache] = useState<Record<string, string>>({})
+  useEffect(() => {
+    jogadoresOrdenados.forEach(j => {
+      if (j.avatar_url && !imgCache[j.id]) {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = 32; canvas.height = 32
+          const ctx = canvas.getContext('2d')!
+          ctx.beginPath(); ctx.arc(16, 16, 16, 0, Math.PI * 2); ctx.clip()
+          ctx.drawImage(img, 0, 0, 32, 32)
+          setImgCache(prev => ({ ...prev, [j.id]: canvas.toDataURL() }))
+        }
+        img.src = j.avatar_url
+      }
+    })
+  }, [jogadoresOrdenados])
+
+  const RIDER_R = 14 // raio do avatar no SVG
 
   return (
     <section style={{ background: '#fff', border: '1px solid #E9E4D9', borderRadius: 16, padding: 22 }}>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A79F8E' }}>
@@ -434,7 +448,6 @@ function GraficoVitoriasAcumuladas({
             Corrida pelo topo — vitórias acumuladas
           </h2>
         </div>
-        {/* Legenda */}
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           {jogadoresOrdenados.map((j, idx) => (
             <div key={j.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -445,27 +458,32 @@ function GraficoVitoriasAcumuladas({
         </div>
       </div>
 
-      {/* SVG */}
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block', overflow: 'visible' }}>
+        <defs>
+          {jogadoresOrdenados.map((j, idx) => (
+            <clipPath key={j.id} id={`clip-rider-${j.id}`}>
+              <circle cx="0" cy="0" r={RIDER_R} />
+            </clipPath>
+          ))}
+        </defs>
+
         {/* Grid horizontal */}
         {gridLines.map((g, i) => (
           <g key={i}>
             <line x1={padL} x2={W - padR} y1={g.y} y2={g.y} stroke="#EDE8DC" strokeWidth="1" />
-            <text x={padL - 8} y={g.y + 4} textAnchor="end" style={{ font: "500 10px 'JetBrains Mono', monospace", fill: '#B3AC9B' }}>
-              {g.label}
-            </text>
+            <text x={padL - 8} y={g.y + 4} textAnchor="end" style={{ font: "500 10px 'JetBrains Mono', monospace", fill: '#B3AC9B' }}>{g.label}</text>
           </g>
         ))}
 
         {/* Grid vertical por prova */}
-        {xLabels.map((t, i) => (
-          <line key={i} x1={t.x} x2={t.x} y1={padT} y2={padT + chartH} stroke="#F4F0E6" strokeWidth="1" />
+        {provasOrdem.map((ps, i) => (
+          <line key={i} x1={toX(i)} x2={toX(i)} y1={padT} y2={padT + chartH} stroke="#F4F0E6" strokeWidth="1" />
         ))}
 
-        {/* Linhas animadas */}
+        {/* Linhas animadas — do último para o primeiro (líder por cima) */}
         {[...jogadoresOrdenados].reverse().map((j, revIdx) => {
           const rank = jogadoresOrdenados.length - 1 - revIdx
-          const pts = animatedPoints(j.id)
+          const pts = polylineVisible(j.id, progress)
           if (!pts) return null
           return (
             <polyline
@@ -480,32 +498,59 @@ function GraficoVitoriasAcumuladas({
           )
         })}
 
-        {/* Pontos em cada prova (aparecem progressivamente) */}
+        {/* Riders (avatares) a avançar na ponta de cada linha */}
         {jogadoresOrdenados.map((j, rank) => {
-          const series = acum[j.id] ?? []
-          const visibleCount = Math.floor(progress * (n - 1)) + 1
-          return series.slice(0, visibleCount).map((v, i) => (
-            <circle
-              key={`${j.id}-${i}`}
-              cx={toX(i)}
-              cy={toY(v)}
-              r={i === visibleCount - 1 && progress < 0.99 ? 3 : 4}
-              fill={PLAYER_COLORS[rank] ?? '#A79F8E'}
-              stroke="#fff"
-              strokeWidth="2"
-              opacity={i === visibleCount - 1 && progress < 0.99 ? 0.6 : 1}
-            />
-          ))
+          const { x, y } = riderPos(j.id, progress)
+          const cor = PLAYER_COLORS[rank] ?? '#A79F8E'
+          const inicial = (j.full_name || j.username)?.[0]?.toUpperCase() ?? '?'
+          const dataUrl = imgCache[j.id]
+
+          // Ligeiro balanço de cima-baixo (simula pedalada)
+          const bounce = Math.sin(progress * Math.PI * 2 * n * 2) * 1.8
+
+          return (
+            <g key={j.id} transform={`translate(${x}, ${y + bounce})`}>
+              {/* Sombra */}
+              <circle cx="0" cy="0" r={RIDER_R + 2} fill="rgba(0,0,0,0.08)" />
+              {/* Borda colorida */}
+              <circle cx="0" cy="0" r={RIDER_R + 1.5} fill={cor} />
+              {/* Avatar ou inicial */}
+              {dataUrl ? (
+                <image
+                  href={dataUrl}
+                  x={-RIDER_R} y={-RIDER_R}
+                  width={RIDER_R * 2} height={RIDER_R * 2}
+                  clipPath={`url(#clip-rider-${j.id})`}
+                />
+              ) : (
+                <>
+                  <circle cx="0" cy="0" r={RIDER_R} fill={cor} />
+                  <text x="0" y="5" textAnchor="middle" style={{ font: `700 ${RIDER_R * 0.75}px 'Archivo', sans-serif`, fill: '#fff' }}>
+                    {inicial}
+                  </text>
+                </>
+              )}
+              {/* Bicicleta mini abaixo do avatar */}
+              <g transform={`translate(-8, ${RIDER_R + 5})`}>
+                <circle cx="2" cy="0" r="3" fill="none" stroke={cor} strokeWidth="1.2" />
+                <circle cx="14" cy="0" r="3" fill="none" stroke={cor} strokeWidth="1.2" />
+                <line x1="2" y1="0" x2="8" y2="-4" stroke={cor} strokeWidth="1.2" strokeLinecap="round" />
+                <line x1="8" y1="-4" x2="14" y2="0" stroke={cor} strokeWidth="1.2" strokeLinecap="round" />
+                <line x1="8" y1="-4" x2="8" y2="-7" stroke={cor} strokeWidth="1.2" strokeLinecap="round" />
+                <line x1="6" y1="-7" x2="10" y2="-7" stroke={cor} strokeWidth="1.5" strokeLinecap="round" />
+              </g>
+            </g>
+          )
         })}
 
         {/* X labels */}
-        {xLabels.map((t, i) => (
+        {provasOrdem.map((ps, i) => (
           <g key={i}>
-            <text x={t.x} y={H - 18} textAnchor="middle" style={{ font: "600 11px 'Archivo', sans-serif", fill: '#A79F8E' }}>
-              {t.line1}
+            <text x={toX(i)} y={H - 20} textAnchor="middle" style={{ font: "600 12px 'Archivo', sans-serif", fill: '#A79F8E' }}>
+              {FLAG[ps.tipo] ?? ''}
             </text>
-            <text x={t.x} y={H - 4} textAnchor="middle" style={{ font: "500 9px 'JetBrains Mono', monospace", fill: '#B3AC9B' }}>
-              {t.line2}
+            <text x={toX(i)} y={H - 6} textAnchor="middle" style={{ font: "500 9px 'JetBrains Mono', monospace", fill: '#B3AC9B' }}>
+              {`${SHORT[ps.tipo] ?? ''} '${String(ps.ano).slice(2)}`}
             </text>
           </g>
         ))}
