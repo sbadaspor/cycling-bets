@@ -18,36 +18,27 @@ export default async function ApostasPage() {
         .eq('prova_id', p.id)
         .eq('user_id', user.id)
         .maybeSingle()
-
       const ciclistasCount = await countCiclistas(p.id)
-
-      return {
-        prova: p,
-        temAposta: !!aposta,
-        pontos: aposta?.pontos_total ?? 0,
-        temStartlist: ciclistasCount > 0,
-      }
+      return { prova: p, temAposta: !!aposta, pontos: aposta?.pontos_total ?? 0, temStartlist: ciclistasCount > 0 }
     })
   )
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="animate-fade-up" style={{ marginBottom: '1.5rem' }}>
-        <p style={{ fontSize: '0.7rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.3rem' }}>
-          📋 Gestão
-        </p>
-        <h1 style={{
-          fontFamily: 'Barlow Condensed, sans-serif',
-          fontSize: '2rem', fontWeight: 900, textTransform: 'uppercase',
-          letterSpacing: '0.03em', lineHeight: 1, marginBottom: '0.4rem',
-        }}>
-          Minhas <span style={{ color: 'var(--lime)' }}>Apostas</span>
+    <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div style={{ padding: '20px 0 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#E0451F', display: 'inline-block' }} />
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A79F8E' }}>
+            Gestão
+          </span>
+        </div>
+        <h1 style={{ font: "800 36px 'Archivo', sans-serif", letterSpacing: '-0.02em', color: '#16140F', margin: 0 }}>
+          As minhas apostas
         </h1>
-        <p style={{ fontSize: '0.875rem', color: 'var(--text-dim)' }}>
+        <p style={{ font: "500 14px 'Archivo', sans-serif", color: '#857E6F', margin: '6px 0 0' }}>
           Aposta nas provas futuras e acompanha os resultados.
         </p>
       </div>
-
       <MinhasApostasList dadosPorProva={dadosPorProva} userId={user.id} />
     </div>
   )
