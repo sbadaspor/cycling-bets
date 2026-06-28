@@ -8,44 +8,28 @@ export default async function ContaPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  const { data: perfil } = await supabase
-    .from('perfis')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
+  const { data: perfil } = await supabase.from('perfis').select('*').eq('id', user.id).single()
   if (!perfil) redirect('/')
 
   return (
-    <div className="max-w-lg mx-auto">
-      <div className="animate-fade-up" style={{ marginBottom: '1.5rem' }}>
-        <Link href="/" style={{
-          fontSize: '0.78rem', color: '#9a9ab5',
-          display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-          textDecoration: 'none', marginBottom: '0.75rem',
-        }}>
-          ← Dashboard
+    <div style={{ maxWidth: 520, margin: '0 auto' }}>
+      <div style={{ padding: '20px 0 24px' }}>
+        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: "500 13px 'Archivo', sans-serif", color: '#A79F8E', textDecoration: 'none', marginBottom: 16 }}>
+          ← Início
         </Link>
-
-        <p style={{
-          fontSize: '0.7rem', color: 'var(--lime)', fontWeight: 700,
-          textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.3rem',
-        }}>
-          ⚙️ Definições
-        </p>
-        <h1 style={{
-          fontFamily: 'Barlow Condensed, sans-serif',
-          fontSize: '2rem', fontWeight: 900,
-          textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1,
-          marginBottom: '0.4rem',
-        }}>
-          O meu <span style={{ color: 'var(--lime)' }}>Perfil</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#E0451F', display: 'inline-block' }} />
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A79F8E' }}>
+            Definições
+          </span>
+        </div>
+        <h1 style={{ font: "800 36px 'Archivo', sans-serif", letterSpacing: '-0.02em', color: '#16140F', margin: 0 }}>
+          O meu Perfil
         </h1>
-        <p style={{ fontSize: '0.875rem', color: '#9a9ab5' }}>
+        <p style={{ font: "400 14px 'Archivo', sans-serif", color: '#857E6F', margin: '6px 0 0' }}>
           Todos os campos são opcionais.
         </p>
       </div>
-
       <ContaForm perfil={perfil} />
     </div>
   )
