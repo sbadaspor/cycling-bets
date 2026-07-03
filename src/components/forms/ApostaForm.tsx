@@ -13,6 +13,15 @@ interface Props {
   ciclistas: Ciclista[]
 }
 
+const S = {
+  card: { background: '#fff', border: '1px solid #E9E4D9', borderRadius: 18, marginBottom: 20 } as React.CSSProperties,
+  cardHeader: { padding: '20px 22px 16px', borderBottom: '1px solid #F1EDE3' } as React.CSSProperties,
+  cardBody: { padding: '16px 22px 20px' } as React.CSSProperties,
+  eyebrow: { fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase' as const, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 },
+  cardTitle: { font: "700 20px 'Archivo', sans-serif", color: '#16140F', margin: 0 } as React.CSSProperties,
+  cardDesc: { font: "400 13px 'Archivo', sans-serif", color: '#A79F8E', margin: '5px 0 0' } as React.CSSProperties,
+}
+
 export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
   const router = useRouter()
   const config = getConfigCategoria(prova.categoria)
@@ -38,22 +47,13 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
   const nomesValidos = new Set(ciclistas.map(c => c.nome))
 
   const handleCiclistaChange = (idx: number, valor: string) => {
-    setPosicoes(prev => {
-      const novo = [...prev]
-      novo[idx] = valor
-      return novo
-    })
+    setPosicoes(prev => { const novo = [...prev]; novo[idx] = valor; return novo })
   }
 
-  // Troca dois ciclistas de posição
-  const moverCiclista = (idx: number, direcao: 'cima' | 'baixo') => {
-    const outro = direcao === 'cima' ? idx - 1 : idx + 1
+  const moverCiclista = (idx: number, dir: 'cima' | 'baixo') => {
+    const outro = dir === 'cima' ? idx - 1 : idx + 1
     if (outro < 0 || outro >= numPos) return
-    setPosicoes(prev => {
-      const novo = [...prev]
-      ;[novo[idx], novo[outro]] = [novo[outro], novo[idx]]
-      return novo
-    })
+    setPosicoes(prev => { const novo = [...prev];[novo[idx], novo[outro]] = [novo[outro], novo[idx]]; return novo })
   }
 
   const handleSubmit = async () => {
@@ -89,7 +89,6 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
       })
       const data = await res.json()
       if (!res.ok) { setErro(data.error ?? 'Erro ao submeter aposta'); return }
-      // Haptic feedback (mobile)
       if (navigator.vibrate) navigator.vibrate([100, 50, 100])
       setSucesso(true)
       setTimeout(() => router.push('/'), 2500)
@@ -104,12 +103,12 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
     return (
       <>
         <Confetti active={true} />
-        <div className="card animate-fade-up" style={{ textAlign: 'center', padding: '3.5rem 1.25rem' }}>
-          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🎉</div>
-          <h2 style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.75rem', fontWeight: 800, color: 'var(--lime)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+        <div style={{ ...S.card, textAlign: 'center', padding: '3.5rem 1.5rem', marginBottom: 0 }}>
+          <div style={{ fontSize: '3.5rem', marginBottom: 16 }}>🎉</div>
+          <h2 style={{ font: "800 24px 'Archivo', sans-serif", color: '#16140F', margin: '0 0 8px', letterSpacing: '-0.01em' }}>
             {apostaExistente ? 'Aposta atualizada!' : 'Aposta submetida!'}
           </h2>
-          <p style={{ color: 'var(--text-dim)', fontSize: '0.875rem' }}>A redirecionar para o dashboard...</p>
+          <p style={{ font: "400 14px 'Archivo', sans-serif", color: '#857E6F' }}>A redirecionar para o início...</p>
         </div>
       </>
     )
@@ -117,87 +116,60 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
 
   const preenchidos = posicoes.filter(c => c.trim() && nomesValidos.has(c.trim())).length
   const completo = preenchidos === numPos
-  const usadosPorPosicao = (idx: number) =>
-    posicoes.filter((c, i) => i !== idx && c.trim() && nomesValidos.has(c.trim()))
+  const usadosPorPosicao = (idx: number) => posicoes.filter((c, i) => i !== idx && c.trim() && nomesValidos.has(c.trim()))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-
+    <div>
+      {/* Erro */}
       {erro && (
-        <div className="animate-fade-up" style={{
-          background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.25)',
-          borderRadius: '0.875rem', padding: '0.875rem 1rem',
-          fontSize: '0.85rem', color: 'var(--red)',
-        }}>
+        <div style={{ background: 'rgba(224,69,31,0.06)', border: '1px solid rgba(224,69,31,0.2)', borderRadius: 12, padding: '12px 16px', font: "400 13px 'Archivo', sans-serif", color: '#E0451F', marginBottom: 16 }}>
           ⚠️ {erro}
         </div>
       )}
 
-      <div className="card-flush animate-fade-up">
-        <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)', background: 'linear-gradient(135deg, rgba(200,244,0,0.05) 0%, transparent 60%)' }}>
-          <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>
-            🏆 Previsão
-          </p>
-          <h2 className="section-title" style={{ fontSize: '1.2rem', marginBottom: '0.2rem' }}>Top {numPos}</h2>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
-            Escreve e escolhe da lista · usa ↑↓ para reordenar
-          </p>
+      {/* Top 20 */}
+      <div style={S.card}>
+        <div style={S.cardHeader}>
+          <div style={{ ...S.eyebrow, color: '#E0451F' }}>
+            <span>🏆</span>PREVISÃO
+          </div>
+          <h2 style={S.cardTitle}>Top {numPos}</h2>
+          <p style={S.cardDesc}>Escreve e escolhe da lista · usa ↑↓ para reordenar</p>
         </div>
-
-        <div style={{ padding: '0.875rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div style={{ ...S.cardBody, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {posicoes.map((ciclista, idx) => {
-            const highlight = numPos === 10 ? idx < 5 : idx < 10
             const valido = ciclista.trim() && nomesValidos.has(ciclista.trim())
-            const invalido = ciclista.trim() && !nomesValidos.has(ciclista.trim())
-
             return (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-                {/* Botões ↑↓ */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {/* Reorder */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, width: 18, flexShrink: 0 }}>
                   <button
-                    onClick={() => moverCiclista(idx, 'cima')}
-                    disabled={idx === 0}
-                    title="Mover para cima"
-                    style={{
-                      width: 22, height: 22, padding: 0, border: 'none', borderRadius: 4,
-                      background: idx === 0 ? 'transparent' : 'var(--surface-2)',
-                      color: idx === 0 ? 'transparent' : 'var(--text-dim)',
-                      cursor: idx === 0 ? 'default' : 'pointer',
-                      fontSize: '0.7rem', lineHeight: 1,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >▲</button>
+                    onClick={() => moverCiclista(idx, 'cima')} disabled={idx === 0}
+                    style={{ background: 'none', border: 'none', padding: 1, cursor: idx === 0 ? 'default' : 'pointer', color: '#B3AC9B', lineHeight: 0, opacity: idx === 0 ? 0.3 : 1 }}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 16 16"><path d="M3.5 10L8 5.5 12.5 10" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
                   <button
-                    onClick={() => moverCiclista(idx, 'baixo')}
-                    disabled={idx === numPos - 1}
-                    title="Mover para baixo"
-                    style={{
-                      width: 22, height: 22, padding: 0, border: 'none', borderRadius: 4,
-                      background: idx === numPos - 1 ? 'transparent' : 'var(--surface-2)',
-                      color: idx === numPos - 1 ? 'transparent' : 'var(--text-dim)',
-                      cursor: idx === numPos - 1 ? 'default' : 'pointer',
-                      fontSize: '0.7rem', lineHeight: 1,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >▼</button>
+                    onClick={() => moverCiclista(idx, 'baixo')} disabled={idx === numPos - 1}
+                    style={{ background: 'none', border: 'none', padding: 1, cursor: idx === numPos - 1 ? 'default' : 'pointer', color: '#B3AC9B', lineHeight: 0, opacity: idx === numPos - 1 ? 0.3 : 1 }}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 16 16"><path d="M3.5 6l4.5 4.5L12.5 6" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
                 </div>
 
-                {/* Número de posição */}
+                {/* Rank badge */}
                 <div style={{
-                  width: 32, height: 32, borderRadius: '0.5rem', flexShrink: 0,
+                  width: 30, height: 30, borderRadius: 8, flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.8rem', fontWeight: 800,
-                  fontFamily: 'Barlow Condensed, sans-serif',
-                  background: valido
-                    ? 'rgba(200,244,0,0.12)'
-                    : highlight ? 'var(--surface-2)' : 'var(--bg)',
-                  border: `1px solid ${valido ? 'rgba(200,244,0,0.3)' : invalido ? 'rgba(255,68,68,0.4)' : 'var(--border)'}`,
-                  color: valido ? 'var(--lime)' : highlight ? 'var(--text-dim)' : 'var(--text-sub)',
+                  font: "700 13px 'JetBrains Mono', monospace",
+                  background: valido ? '#FBF2ED' : '#F4F0E6',
+                  color: valido ? '#E0451F' : '#B3AC9B',
+                  transition: 'background 0.15s, color 0.15s',
                 }}>
                   {idx + 1}
                 </div>
 
+                {/* Autocomplete */}
                 <div style={{ flex: 1 }}>
                   <CyclistAutocomplete
                     ciclistas={ciclistas}
@@ -213,25 +185,27 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
         </div>
       </div>
 
+      {/* Camisolas */}
       {config.temCamisolas && (
-        <div className="card-flush animate-fade-up delay-1">
-          <div style={{ padding: '1rem 1.25rem 0.875rem', borderBottom: '1px solid var(--border)' }}>
-            <p style={{ fontSize: '0.68rem', color: 'var(--lime)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>
-              🎽 Classificações especiais
-            </p>
-            <h2 className="section-title" style={{ fontSize: '1.2rem', marginBottom: '0.2rem' }}>Camisolas</h2>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>Opcional — 1 ponto por acerto</p>
+        <div style={S.card}>
+          <div style={S.cardHeader}>
+            <div style={{ ...S.eyebrow, color: '#2563EB' }}>
+              <span>🎽</span>CLASSIFICAÇÕES ESPECIAIS
+            </div>
+            <h2 style={S.cardTitle}>Camisolas</h2>
+            <p style={S.cardDesc}>Opcional — 1 ponto por acerto</p>
           </div>
-          <div style={{ padding: '0.875rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          <div style={{ ...S.cardBody, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {[
-              { label: '🟢 Camisola Sprint',    value: camisolaSprint,    set: setCamisolaSprint },
-              { label: '🔴 Camisola Montanha',  value: camisolaMontanha,  set: setCamisolaMontanha },
-              { label: '⚪ Camisola Juventude', value: camisolaJuventude, set: setCamisolaJuventude },
-            ].map(({ label, value, set }) => (
+              { label: 'Sprint', cor: '#16A34A', dot: '#16A34A', value: camisolaSprint, set: setCamisolaSprint },
+              { label: 'Montanha', cor: '#E0451F', dot: '#E0451F', value: camisolaMontanha, set: setCamisolaMontanha },
+              { label: 'Juventude', cor: '#EAB308', dot: '#EAB308', value: camisolaJuventude, set: setCamisolaJuventude },
+            ].map(({ label, dot, value, set }) => (
               <div key={label}>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-dim)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {label}
-                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: dot, display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6B665B' }}>{label}</span>
+                </div>
                 <CyclistAutocomplete ciclistas={ciclistas} value={value} onChange={set} placeholder="Nome do ciclista" />
               </div>
             ))}
@@ -239,36 +213,34 @@ export function ApostaForm({ prova, apostaExistente, ciclistas }: Props) {
         </div>
       )}
 
-      {/* Progresso */}
-      <div className="card animate-fade-up delay-2" style={{ padding: '1rem 1.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.625rem' }}>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Progresso
-          </span>
-          <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1rem', fontWeight: 800, color: completo ? 'var(--lime)' : 'var(--text-dim)' }}>
-            {preenchidos}/{numPos}
-          </span>
+      {/* Barra sticky de progresso + submeter */}
+      <div style={{ position: 'sticky', bottom: 0, paddingTop: 6 }}>
+        <div style={{ background: '#fff', border: '1px solid #E9E4D9', borderRadius: '14px 14px 0 0', padding: '14px 20px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#A79F8E' }}>Progresso</span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: completo ? '#16140F' : '#A79F8E' }}>{preenchidos}/{numPos}</span>
         </div>
-        <div style={{ height: 6, background: 'var(--surface-2)', borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', borderRadius: 3,
-            width: `${(preenchidos / numPos) * 100}%`,
-            background: completo ? 'var(--lime)' : 'var(--surface-2)',
-            border: completo ? 'none' : '1px solid var(--border-hi)',
-            boxShadow: completo ? '0 0 12px var(--lime-glow)' : 'none',
-            transition: 'width 0.3s ease, background 0.3s ease',
-          }} />
+        <div style={{ background: '#fff', borderLeft: '1px solid #E9E4D9', borderRight: '1px solid #E9E4D9', padding: '8px 20px 16px' }}>
+          <div style={{ height: 6, borderRadius: 3, background: '#F1ECE1', overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 3, background: '#16140F', width: `${(preenchidos / numPos) * 100}%`, transition: 'width 0.2s ease' }} />
+          </div>
         </div>
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          style={{
+            width: '100%', border: 'none', padding: 17,
+            borderRadius: '0 0 14px 14px',
+            background: loading ? '#857E6F' : '#16140F',
+            color: '#fff', font: "700 15px 'Archivo', sans-serif",
+            cursor: loading ? 'not-allowed' : 'pointer',
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#E0451F' }}
+          onMouseLeave={e => { if (!loading) e.currentTarget.style.background = '#16140F' }}
+        >
+          {loading ? '⏳ A submeter...' : apostaExistente ? '💾 Atualizar Aposta' : '🚀 Submeter Aposta'}
+        </button>
       </div>
-
-      <button
-        onClick={handleSubmit}
-        disabled={loading}
-        className="btn-primary animate-fade-up delay-3"
-        style={{ width: '100%', padding: '0.9rem', fontSize: '1.05rem' }}
-      >
-        {loading ? '⏳ A submeter...' : apostaExistente ? '💾 Atualizar Aposta' : '🚀 Submeter Aposta'}
-      </button>
     </div>
   )
 }
